@@ -525,27 +525,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let args: Vec<String> = env::args().collect();
 
-    let one_gb = 1024 * 1024 * 1024 as usize; // 8K
-    let buffer_size_padrao = 8 * 1024 as usize; // 8K
-    let chunk_size_padrao = one_gb as usize; // 8K
-
-    // Verificando se o número de argumentos é o esperado
-    if args.len() < 3 {
-        eprintln!("Use: {} <command> <file_path> <dest_folder_path>?", args[0]);
-        eprintln!("Commands: 'rsha256','split','rebuild','sha256' ");
-        eprintln!("Option: '--log' to print logs");
-        eprintln!(
-            "Option: '--chunksize Value' to change size that file block is divided. Default {} bytes",
-            chunk_size_padrao
-        );
-        eprintln!(
-            "Option: '--buffersize Value' to change buffersize. Default {} bytes",
-            buffer_size_padrao
-        );
-
-        process::exit(1);
-    }
-
     // Pega
 
     let mut chunk_size_str = "50MB"; // 50 MB
@@ -554,12 +533,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer_size_str = "10KB"; // 50 MB
     let mut buffer_size: usize = parse_size(buffer_size_str)? as usize; // 50 MB
 
-    if let Some(chunksize_index) = args.iter().position(|x| x == "--chunksize") {
+    if args.len() < 3 {
+        eprintln!("Use: {} <command> <file_path> <dest_folder_path>?", args[0]);
+        eprintln!("Commands: 'rsha256','split','rebuild','sha256' ");
+        eprintln!("Option: '--log' to print logs");
+        eprintln!(
+            "Option: '--blocksize Value' to change size that file block is divided. Default {}. Use KB, MB, GB, TB",
+            chunk_size_str
+        );
+        eprintln!(
+            "Option: '--buffersize Value' to change buffersize. Default {}. Use KB, MB, GB, TB",
+            buffer_size_str
+        );
+
+        process::exit(1);
+    }
+
+    if let Some(chunksize_index) = args.iter().position(|x| x == "--blocksize") {
         if let Some(size_str) = args.get(chunksize_index + 1) {
             chunk_size_str = size_str;
             chunk_size = parse_size(size_str)? as usize;
         } else {
-            eprintln!("--chunksize provided without a value.");
+            eprintln!("--blocksize provided without a value.  Use KB, MB, GB, TB");
             return Ok(());
         }
     }
@@ -569,7 +564,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             buffer_size_str = size_str;
             buffer_size = parse_size(size_str)? as usize;
         } else {
-            eprintln!("--buffersize provided without a value.");
+            eprintln!("--buffersize provided without a value.  Use KB, MB, GB, TB");
             return Ok(());
         }
     }
@@ -651,7 +646,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             eprintln!("Use: {} <command> <file_path> <dest_folder_path>?", args[0]);
-            eprintln!("Commands: 'r-sha256','split','rebuild','sha256' ");
+            eprintln!("Commands: 'rsha256','split','rebuild','sha256' ");
             process::exit(1);
         }
     }
