@@ -66,8 +66,8 @@ fn hash_rsha256(
     let hash_alg = "RSHA256".to_string();
 
     info!(
-        "r-sah256 {} BlokSize:{} BufferSize:{} ",
-        file_path, chunk_size, buffer_size
+        "alg:{} file: {} BlokSize:{} BufferSize:{} ",
+        hash_alg, file_path, chunk_size, buffer_size
     );
 
     let blocos = calcular_blocos(file_path, buffer_size, chunk_size)?; // Função que calcula os blocos
@@ -174,7 +174,7 @@ fn hash_rsha256(
         safe_hash_final, safe_hash_alg, safe_chunk_size_str, safe_file_path
     );
 
-    if (check_hash) {
+    if check_hash {
         if hash_to_check.trim().to_lowercase() == hash_final.trim().to_lowercase() {
             println!("Sucess. Hashes matched!");
         } else {
@@ -208,7 +208,12 @@ fn hash_sha256(file_path: &str, buffer_size: usize) -> io::Result<String> {
     Ok(format!("{:x}", hash_result))
 }
 // Função que reconstrói o arquivo a partir das partes, usando um buffer menor
-fn rebuild(dir_destino: &str, file: &str, buffer_size: usize, chunk_size: usize) -> io::Result<()> {
+fn rebuild(
+    dir_destino: &str,
+    file: &str,
+    buffer_size: usize,
+    _chunk_size: usize,
+) -> io::Result<()> {
     // Listando todos os arquivos no diretório
     let mut parts: Vec<_> = fs::read_dir(dir_destino)?
         .filter_map(|entry| {
@@ -394,7 +399,7 @@ struct ChunkBloco {
 
 fn calcular_blocos(
     file_path: &str,
-    buffer_size: usize,
+    _buffer_size: usize,
     chunk_size: usize,
 ) -> io::Result<Vec<ChunkBloco>> {
     let file = File::open(file_path)?;
@@ -424,7 +429,7 @@ fn calcular_hash_bloco(
     reader: &mut BufReader<File>,
     bloco: ChunkBloco,
     buffer_size: usize,
-    chunk_size: usize,
+    _chunk_size: usize,
 ) -> Result<ChunkBloco, io::Error> {
     let mut hasher = Sha256::new();
     reader.seek(io::SeekFrom::Start(bloco.inicio_bloco))?; // Ir até o offset do bloco
@@ -544,10 +549,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Pega
 
     let mut chunk_size_str = "50MB"; // 50 MB
-    let mut chunk_size: usize = chunk_size_padrao; // 50 MB
+    let mut chunk_size: usize = parse_size(chunk_size_str)? as usize; // 50 MB
 
     let mut buffer_size_str = "10KB"; // 50 MB
-    let mut buffer_size: usize = buffer_size_padrao; // 50 MB
+    let mut buffer_size: usize = parse_size(buffer_size_str)? as usize; // 50 MB
 
     if let Some(chunksize_index) = args.iter().position(|x| x == "--chunksize") {
         if let Some(size_str) = args.get(chunksize_index + 1) {
