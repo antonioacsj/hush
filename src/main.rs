@@ -18,13 +18,55 @@ const chunk_size: u64 = 50 * 1024 * 1024; // 50 MB
 const BUFFER_SIZE: usize = 8 * 1024; // 8 KB
 */
 
+fn parse_size(size_str: &str) -> Result<u64, &'static str> {
+    // Remove any whitespace and convert the string to uppercase
+    let size_str = size_str.trim().to_uppercase();
+
+    // Find where the numeric part ends and the unit starts
+    let mut number_part = String::new();
+    let mut unit_part = String::new();
+
+    for ch in size_str.chars() {
+        if ch.is_numeric() {
+            number_part.push(ch);
+        } else {
+            unit_part.push(ch);
+        }
+    }
+
+    // Parse the numeric part
+    let number: u64 = number_part.parse().map_err(|_| "Invalid number")?;
+
+    // Match the unit and convert to bytes
+    match unit_part.as_str() {
+        "B" => Ok(number),
+        "KB" => Ok(number * 1_024),
+        "MB" => Ok(number * 1_024 * 1_024),
+        "GB" => Ok(number * 1_024 * 1_024 * 1_024),
+        "TB" => Ok(number * 1_024 * 1_024 * 1_024 * 1_024),
+        _ => Err("Unknown unit"),
+    }
+}
+
 fn log_progresso(str_log: String) {
     if *LOG_ENABLED.get().unwrap_or(&false) {
         print!("{}", str_log);
     }
 }
 
-fn hash_rush(file_path: &str, buffer_size: usize, chunk_size: usize) -> io::Result<()> {
+fn hash_rsha256(
+    file_path: &str,
+    buffer_size: usize,
+    chunk_size: usize,
+    chunk_size_str: String,
+) -> io::Result<()> {
+    let hash_alg = "RSHA256|".to_string();
+
+    info!(
+        "r-sah256 {} BlokSize:{} BufferSize:{} ",
+        file_path, chunk_size, buffer_size
+    );
+
     let blocos = calcular_blocos(file_path, buffer_size, chunk_size)?; // Função que calcula os blocos
 
     let (sender_calculo, receiver_calculo): (Sender<ChunkBloco>, Receiver<ChunkBloco>) =
@@ -45,8 +87,9 @@ fn hash_rush(file_path: &str, buffer_size: usize, chunk_size: usize) -> io::Resu
 
     // Criar threads para calcular o hash dos blocos usando BufReader
     let mut handles = Vec::new();
-    for _ in 0..num_cpus {
+    for n_cpu in 0..num_cpus {
         //let file_path_clone: String = file_path.to_string();
+        info!("Cpu {} start running", n_cpu);
         let file_path_clone: String = String::from(file_path);
 
         let file = File::open(file_path)?;
@@ -98,21 +141,31 @@ fn hash_rush(file_path: &str, buffer_size: usize, chunk_size: usize) -> io::Resu
     // Ordenar os resultados para garantir a ordem correta
     resultados.sort_by_key(|bloco| bloco.n_bloco);
 
-    let mut hasher_cumulativo = Sha256::new();
     // Imprimir os resultados ordenados
     log_progresso("\n".to_string());
-    println!("Block;bytes_start;byte_end;hash");
-    for bloco in resultados {
-        println!(
-            "{0:10};{1:10};{2:10};{3}",
-            bloco.n_bloco, bloco.inicio_bloco, bloco.fim_bloco, bloco.hash_bloco
-        );
-        hasher_cumulativo.update(bloco.hash_bloco.as_bytes());
-    }
-    let hash_cumulativo_result = hasher_cumulativo.finalize();
-    let hash_cumulativo_hex = format!("{:x}", hash_cumulativo_result);
 
-    println!("Hash Cumulativo: {}", hash_cumulativo_hex);
+    let hash_final: String;
+    if resultados.len() == 1 {
+        let bloco = &resultados[0];
+        hash_final = bloco.hash_bloco.clone();
+    } else {
+        let mut hasher_cumulativo = Sha256::new();
+        info!("Block;bytes_start;byte_end;hash");
+        for bloco in resultados {
+            info!(
+                "{0:10};{1:10};{2:10};{3}",
+                bloco.n_bloco, bloco.inicio_bloco, bloco.fim_bloco, bloco.hash_bloco
+            );
+            hasher_cumulativo.update(bloco.hash_bloco.as_bytes());
+        }
+        let hash_cumulativo_result = hasher_cumulativo.finalize();
+        hash_final = format!("{:x}", hash_cumulativo_result);
+    }
+
+    println!(
+        "{} ?{}|{}*{}",
+        hash_final, hash_alg, chunk_size_str, file_path
+    );
     Ok(())
 }
 
@@ -394,29 +447,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Verificando se o número de argumentos é o esperado
     if args.len() < 3 {
         eprintln!("Use: {} <command> <file_path> <dest_folder_path>?", args[0]);
-        eprintln!("Commands: 'rush','split','rebuild','sha256' ");
+        eprintln!("Commands: 'r-sha256','split','rebuild','sha256' ");
         eprintln!("Option: '--log' to print logs");
+        eprintln!(
+            "Option: '--chunksize Value' to change size that file block is divided. Default {} bytes",
+            chunk_size_padrao
+        );
+        eprintln!(
+            "Option: '--buffersize Value' to change buffersize. Default {} bytes",
+            buffer_size_padrao
+        );
+
         process::exit(1);
     }
 
     // Pega
+
+    let mut chunk_size_str = "50MB"; // 50 MB
     let mut chunk_size: usize = chunk_size_padrao; // 50 MB
 
-    if let Some(chunksize_index) = args.iter().position(|x| x == "--chunksize") {
-        if let Some(size_str) = args.get(chunksize_index + 1) {
-            chunk_size = size_str.parse()?;
-        } else {
-            eprintln!("--chunksize provided without a value.");
-            return Ok(());
-        }
-    }
-
-    let mut chunk_size: usize = chunk_size_padrao; // 50 MB
+    let mut buffer_size_str = "10KB"; // 50 MB
     let mut buffer_size: usize = buffer_size_padrao; // 50 MB
 
     if let Some(chunksize_index) = args.iter().position(|x| x == "--chunksize") {
         if let Some(size_str) = args.get(chunksize_index + 1) {
-            chunk_size = size_str.parse()?;
+            chunk_size_str = size_str;
+            chunk_size = parse_size(size_str)? as usize;
         } else {
             eprintln!("--chunksize provided without a value.");
             return Ok(());
@@ -425,7 +481,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(buffersize_index) = args.iter().position(|x| x == "--buffersize") {
         if let Some(size_str) = args.get(buffersize_index + 1) {
-            buffer_size = size_str.parse()?;
+            buffer_size_str = size_str;
+            buffer_size = parse_size(size_str)? as usize;
         } else {
             eprintln!("--buffersize provided without a value.");
             return Ok(());
@@ -437,10 +494,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         LOG_ENABLED
             .set(true)
             .expect("LOG_ENABLED can only be set once");
-        info!("Logging is enabled in the main thread.");
         env_logger::Builder::new()
             .filter_level(LevelFilter::Info) // Set logging level (Info, Warn, etc.)
             .init();
+        info!("Logging is enabled in the main thread.");
     }
 
     // Extraindo os argumentos
@@ -479,9 +536,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 process::exit(1);
             }
         }
-        "rush" => {
-            if let Err(e) = hash_rush(file_path, buffer_size, chunk_size) {
-                eprintln!("rush error: {}", e);
+        "r-sha256" => {
+            if let Err(e) = hash_rsha256(
+                file_path,
+                buffer_size,
+                chunk_size,
+                chunk_size_str.to_string(),
+            ) {
+                eprintln!("r-sha256 error: {}", e);
                 process::exit(1);
             }
         }
@@ -493,11 +555,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             eprintln!("Use: {} <command> <file_path> <dest_folder_path>?", args[0]);
-            eprintln!("Commands: 'rush','split','rebuild','sha256' ");
+            eprintln!("Commands: 'r-sha256','split','rebuild','sha256' ");
             process::exit(1);
         }
     }
     let duration = start.elapsed();
-    println!("Execution Time: {:?}", duration);
+    info!("Execution Time: {:?}", duration);
     Ok(())
 }
