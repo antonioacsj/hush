@@ -532,7 +532,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Verificando se o número de argumentos é o esperado
     if args.len() < 3 {
         eprintln!("Use: {} <command> <file_path> <dest_folder_path>?", args[0]);
-        eprintln!("Commands: 'r-sha256','split','rebuild','sha256' ");
+        eprintln!("Commands: 'rsha256','split','rebuild','sha256' ");
         eprintln!("Option: '--log' to print logs");
         eprintln!(
             "Option: '--chunksize Value' to change size that file block is divided. Default {} bytes",
@@ -621,7 +621,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 process::exit(1);
             }
         }
-        "r-sha256" => {
+        "rsha256" => {
             let check_hash = false;
             let hash_to_check = "".to_string();
             if let Err(e) = hash_rsha256(
@@ -632,7 +632,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 check_hash,
                 hash_to_check,
             ) {
-                eprintln!("r-sha256 error: {}", e);
+                eprintln!("rsha256 error: {}", e);
                 process::exit(1);
             }
         }
