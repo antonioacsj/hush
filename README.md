@@ -18,5 +18,15 @@ Rash uses multi-threaded processing to hash file blocks, improving speed on larg
 ### Example Usage
 
 ```bash
+# Using rsha256
+rash rsha256 <path_to_file>
+
 # Using rsha256 with a block size of 64MB
-rash --algorithm rsha256 --blockSize 64MB <path_to_file>
+rash rsha256 --blockSize 64MB <path_to_file>
+
+# Using rsha256 to check a file with hash generated:
+rash check <path_to_file_with_hash>
+
+```
+
+#Obs: Block size in verification has to be the same of generation. So it will use of line with format
