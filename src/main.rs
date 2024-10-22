@@ -554,7 +554,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             chunk_size_str = size_str;
             chunk_size = parse_size(size_str)? as usize;
         } else {
-            eprintln!("--blocksize provided without a value.  Use KB, MB, GB, TB");
+            eprintln!("--blocksize provided without a value. Use KB, MB, GB, TB");
             return Ok(());
         }
     }
@@ -564,7 +564,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             buffer_size_str = size_str;
             buffer_size = parse_size(size_str)? as usize;
         } else {
-            eprintln!("--buffersize provided without a value.  Use KB, MB, GB, TB");
+            eprintln!("--buffersize provided without a value. Use KB, MB, GB, TB. ");
             return Ok(());
         }
     }
