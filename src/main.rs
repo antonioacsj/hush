@@ -5,6 +5,7 @@ use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
 use std::env;
 use std::fs::{self, File};
+use std::io::BufRead;
 use std::io::{self, BufReader, Read, Seek, Write};
 use std::path::Path;
 use std::process;
@@ -59,8 +60,10 @@ fn hash_rsha256(
     buffer_size: usize,
     chunk_size: usize,
     chunk_size_str: String,
+    check_hash: bool,
+    hash_to_check: String,
 ) -> io::Result<()> {
-    let hash_alg = "RSHA256|".to_string();
+    let hash_alg = "RSHA256".to_string();
 
     info!(
         "r-sah256 {} BlokSize:{} BufferSize:{} ",
@@ -162,10 +165,26 @@ fn hash_rsha256(
         hash_final = format!("{:x}", hash_cumulativo_result);
     }
 
+    let safe_hash_final = String::from_utf8_lossy(hash_final.as_bytes());
+    let safe_hash_alg = String::from_utf8_lossy(hash_alg.as_bytes());
+    let safe_chunk_size_str = String::from_utf8_lossy(chunk_size_str.as_bytes());
+    let safe_file_path = String::from_utf8_lossy(file_path.as_bytes());
     println!(
         "{} ?{}|{}*{}",
-        hash_final, hash_alg, chunk_size_str, file_path
+        safe_hash_final, safe_hash_alg, safe_chunk_size_str, safe_file_path
     );
+
+    if (check_hash) {
+        if hash_to_check.trim().to_lowercase() == hash_final.trim().to_lowercase() {
+            println!("Sucess. Hashes matched!");
+        } else {
+            // Erro na checagem
+            println!("Error. Does not match!");
+            println!("  Hash to check: {}", hash_to_check);
+            println!("Hash Calculated: {}", hash_final);
+        }
+    }
+
     Ok(())
 }
 
@@ -435,6 +454,67 @@ fn calcular_hash_bloco(
     })
 }
 
+fn parse_line(line: &str) -> Option<(String, String, String, String)> {
+    // Split the line by the specific characters ? | *
+    let parts: Vec<&str> = line.split(&['?', '|', '*'][..]).collect();
+
+    // Check if we have exactly 4 parts
+    if parts.len() == 4 {
+        let hash_final = parts[0].to_string();
+        let hash_alg = parts[1].to_string();
+        let chunk_size_str = parts[2].to_string();
+        let file_path = parts[3].to_string();
+        Some((hash_final, hash_alg, chunk_size_str, file_path))
+    } else {
+        None
+    }
+}
+
+fn read_and_parse_file(file_path: &str) -> io::Result<()> {
+    let path = Path::new(file_path);
+    let file = File::open(&path)?;
+    let reader = BufReader::new(file);
+
+    // Read the file line by line
+    for line_result in reader.lines() {
+        match line_result {
+            Ok(line) => {
+                // Parse each line
+                if let Some((hash_final, hash_alg, chunk_size_str, file_path)) = parse_line(&line) {
+                    // Print or use the variables
+                    println!("Hash Final: {}", hash_final);
+                    println!("Hash Algorithm: {}", hash_alg);
+                    println!("Chunk Size: {}", chunk_size_str);
+                    println!("File Path: {}", file_path);
+
+                    let buffer_size_padrao = 8 * 1024 as usize; // 8K
+                    let check_hash = true;
+                    let hash_to_check = hash_final.trim().to_lowercase();
+                    let chunk_size = parse_size(&chunk_size_str).unwrap() as usize;
+                    if let Err(e) = hash_rsha256(
+                        &file_path,
+                        buffer_size_padrao,
+                        chunk_size,
+                        chunk_size_str,
+                        check_hash,
+                        hash_to_check,
+                    ) {
+                        eprintln!("r-sha256 error: {}", e);
+                        process::exit(1);
+                    }
+                } else {
+                    println!("Invalid line format: {}", line);
+                }
+            }
+            Err(err) => {
+                // Handle the error if reading the line fails
+                println!("Error reading line: {}", err);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Coletando os argumentos da linha de comando
     let start = Instant::now();
@@ -537,16 +617,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         "r-sha256" => {
+            let check_hash = false;
+            let hash_to_check = "".to_string();
             if let Err(e) = hash_rsha256(
                 file_path,
                 buffer_size,
                 chunk_size,
                 chunk_size_str.to_string(),
+                check_hash,
+                hash_to_check,
             ) {
                 eprintln!("r-sha256 error: {}", e);
                 process::exit(1);
             }
         }
+        "check" => {
+            if let Err(e) = read_and_parse_file(file_path) {
+                eprintln!("check error: {}", e);
+                process::exit(1);
+            }
+        }
+
         "sha256" => {
             if let Err(e) = hash_sha256(file_path, buffer_size) {
                 eprintln!("sha256 error: {}", e);
