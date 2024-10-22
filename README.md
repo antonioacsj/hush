@@ -1,13 +1,22 @@
-rash - Rush Hash: A more fast hash algoritm.
+# Rash - Rush Hash
 
-Due a bigger and bigger files, its necessary update the way that hash files are calculated. In this approach, we try maximize the cpu availables in the computer, to use
-paralell hash computation of blocks of file, and then, hash the thas of blocks, like in a blockchain.
+Rash is a high-performance hashing algorithm designed to handle increasingly larger files by utilizing parallel computation. It divides files into blocks, hashes them in parallel, and then combines the block hashes into a final hash, similar to how a blockchain works.
 
-The final hash is the rash code of that file. 
+## Supported Algorithms
 
-Actually, the r-sha256 is supported, but we can have r-sha512, etc.
+- **rsha256** (default) - Hash the blocks with sha256
+- **rsha512** (planned support) - Hash the blocks with sha512
 
+## How It Works
 
+Rash uses multi-threaded processing to hash file blocks, improving speed on large files. After hashing each block, it generates a final hash by combining the hashes of all blocks in sequence.
 
+### Parameters
 
-The algoritm take parameters: blockSize, that is the size that the original file will be breaked to hash computation.
+- `blockSize`: Defines the size of the chunks the file will be split into for hashing.
+
+### Example Usage
+
+```bash
+# Using rsha256 with a block size of 64MB
+rash --algorithm rsha256 --blockSize 64MB <path_to_file>
