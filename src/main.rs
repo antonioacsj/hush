@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             main_args.block_size_str= size_str.to_string();
             main_args.block_size = ParseSize(size_str)? as u64;
         } else {
-            eprintln!("--blocksize provided without a value. Use KB, MB, GB, TB");
+            eprintln!("--blocksize provided without a value. Use KB, MB, GB, TB. Ex: --blocksize 50MB");
             return Ok(());
         }
     }
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             main_args.buffer_size_str = size_str.to_string();
             main_args.buffer_size = ParseSize(size_str)? as u32;
         } else {
-            eprintln!("--buffersize provided without a value. Use KB, MB, GB, TB. ");
+            eprintln!("--buffersize provided without a value. Use KB, MB. Ex: --buffersize 8KB ");
             return Ok(());
         }
     }
@@ -163,7 +163,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("Use: {} split <file_path> <dest_folder_path>?", args[0]);
                 eprintln!("<file_path>: file to split.");
                 eprintln!("<file_path>: folder to receive splitted files.");
-
                 process::exit(1);
             }
 
@@ -227,16 +226,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             if args.len() < 3 {
                 eprintln!("Use: {} gen <file_path> ", args[0]);
-                eprintln!("<file_path>: file_path to gen.");                
+                eprintln!("<file_path>: file_path to gen(glob pattern!).");                
 
                 process::exit(1);
             }            
             
-            let recurse_dir=true;
-                                    
+                                                
             debug!("search_files: {} ",file_path)    ;
             let results =         
-            search_files(file_path , recurse_dir).unwrap();
+            search_files(file_path ).unwrap();
 
             process_files(main_args, results);
 
@@ -433,7 +431,7 @@ fn process_files(main_args: functions::Argumentos,files :Vec<String>){
 
 
 
-fn search_files(pattern: &str, recursive: bool) -> Result<Vec<String>, io::Error> {
+fn search_files(pattern: &str) -> Result<Vec<String>, io::Error> {
     let mut results = Vec::new();
 
     // Verifica se o caminho é um arquivo

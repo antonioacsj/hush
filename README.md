@@ -5,21 +5,21 @@
 To files smaller than block size, computes hashes in a single block, in a multithread environment.
 To big files, it divides into blocks, hashes them in a multithread/multiworker, and then combines the block hashes into a final hash, similar to how a blockchain works. (See picture.)
 
-## Supported Algorithms
-
-- **rsha256** (default) - Hash the blocks with sha256
-- **rsha512** (planned support) - Hash the blocks with sha512
-
 ## How It Works
 
 Rash uses multi-threaded processing to hash file blocks, improving speed on large files. After hashing each block, it generates a final hash by combining the hashes of all blocks in sequence.
 
 ![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
 
-### Parameters
+## Supported Algorithms
 
-- `blockSize`: Defines the size of the chunks the file will be split into for hashing.
-- `bufferSize`: Defines the size of the buffer the file will be read into.
+- **rsha256** (default) - Hash the blocks with sha256
+- **rsha512** (planned support) - Hash the blocks with sha512
+
+### Parameters to play :)
+
+- `blocksize`: Defines the size of the chunks the file will be split into for hashing.
+- `buffersize`: Defines the size of the buffer the file will be read into.
 - `n_workers`: Defines the amount of workers to use in main pool.
 - `n_max_concur`: Defines the amount of maximum concurrent access to each file (threads to each file).
 
