@@ -11,6 +11,8 @@ Rash is a high-performance hashing algorithm designed to handle increasingly lar
 
 Rash uses multi-threaded processing to hash file blocks, improving speed on large files. After hashing each block, it generates a final hash by combining the hashes of all blocks in sequence.
 
+![alt text](https://github.com/antonioacsj/rash/blob/master/blocks.jpg?raw=true)
+
 ### Parameters
 
 - `blockSize`: Defines the size of the chunks the file will be split into for hashing.
