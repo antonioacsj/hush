@@ -73,6 +73,7 @@ pub fn hash_rsha256(
     file_path: &str,
     buffer_size: usize,
     chunk_size: usize,
+    n_max_concur: u32,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let hash_alg = "RSHA256".to_string();
 
@@ -101,7 +102,8 @@ pub fn hash_rsha256(
 
     // Criar threads para calcular o hash dos blocos usando BufReader
     let mut handles = Vec::new();
-    for n_cpu in 0..num_cpus {
+
+    for n_cpu in 0..n_max_concur {
         //let file_path_clone: String = file_path.to_string();
         info!("Cpu {} start running", n_cpu);
         let file_path_clone: String = String::from(file_path);
@@ -466,7 +468,7 @@ fn parse_line(line: &str) -> Option<(String, String, String, String)> {
     }
 }
 
-pub fn read_and_parse_file(file_path: &str) -> io::Result<()> {
+pub fn read_and_parse_file(main_args: Argumentos, file_path: &str) -> io::Result<()> {
     let path = Path::new(file_path);
     let file = File::open(&path)?;
     let reader = BufReader::new(file);
@@ -487,7 +489,12 @@ pub fn read_and_parse_file(file_path: &str) -> io::Result<()> {
                     let check_hash = true;
                     let hash_to_check = hash_final.trim().to_lowercase();
                     let chunk_size = ParseSize(&chunk_size_str).unwrap() as usize;
-                    if let Err(e) = hash_rsha256(&file_path, buffer_size_padrao, chunk_size) {
+                    if let Err(e) = hash_rsha256(
+                        &file_path,
+                        buffer_size_padrao,
+                        chunk_size,
+                        main_args.n_max_concur,
+                    ) {
                         eprintln!("r-sha256 error: {}", e);
                         process::exit(1);
                     }

@@ -51,6 +51,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     main_args.buffer_size_str = "10KB".to_string(); // 50 MB
     main_args.buffer_size = ParseSize(&main_args.buffer_size_str)? as u32; // 50 MB
 
+    main_args.n_workers= 15;
+    main_args.n_max_concur= 15;
+
     if args.len() < 3 {
         eprintln!("Use: {} <command> <file_path> <dest_folder_path>?", args[0]);
         eprintln!("Commands: 'gen','rsha256','split','rebuild','sha256' ");
@@ -62,6 +65,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!(
             "Option: '--buffersize Value' to change buffersize. Default {}. Use KB, MB, GB, TB",
             main_args.buffer_size_str
+        );
+        eprintln!(
+            "Option: '--n_workers Value' to change how many workers will be used. Default {}. ",         main_args.n_workers
+        );
+        eprintln!(
+            "Option: '--n_max_concur Value' to change how maximum number of concurrent access to each file . Default {}",  main_args.n_max_concur
         );
 
         process::exit(1);
@@ -77,6 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+
     if let Some(buffersize_index) = args.iter().position(|x| x == "--buffersize") {
         if let Some(size_str) = args.get(buffersize_index + 1) {
             main_args.buffer_size_str = size_str.to_string();
@@ -86,8 +96,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     }
-    main_args.n_workers= 15;
- 
+    
+    
+    if let Some(chunksize_index) = args.iter().position(|x| x == "--n_workers") {
+        if let Some(size_str) = args.get(chunksize_index + 1) { 
+            match size_str.parse::<u32>() {
+                Ok(parsed_value) => {
+                    main_args.n_workers = parsed_value;
+                }
+                Err(e) => {
+                    eprintln!("Failed to parse size_str as u32: {}", e);
+                }    
+            }            
+        } else {
+            eprintln!("--n_workers provided without a value. Don´t use it, or use a number.Ex: --n_workers 30");
+            return Ok(());
+        }
+    }
+
+    
+    if let Some(chunksize_index) = args.iter().position(|x| x == "--n_max_concur") {
+        if let Some(size_str) = args.get(chunksize_index + 1) {        
+            match size_str.parse::<u32>() {
+                Ok(parsed_value) => {
+                    main_args.n_max_concur = parsed_value;
+                }
+                Err(e) => {
+                    eprintln!("Failed to parse size_str as u32: {}", e);
+                }    
+            }
+                    
+        } else {
+           
+            eprintln!("--n_max_concur provided without a value. Don´t use it, or use a number. Ex: --n_max_concur 20");
+            return Ok(());
+        }
+    }
+
     let enable_logging = args.contains(&"--log".to_string());
     if enable_logging {
         main_args.log_enabled=true;
@@ -147,7 +192,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             match functions::hash_rsha256(
                 file_path,
                 main_args.buffer_size as usize,
-                main_args.block_size as usize,                  
+                main_args.block_size as usize,         
+                main_args.n_max_concur
+                         
             ){
                 Ok(hash_final) => {
                             let hash_alg= "rsha256";
@@ -204,7 +251,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         "check" => {
-            if let Err(e) = functions::read_and_parse_file(file_path) {
+            if let Err(e) = functions::read_and_parse_file(main_args,file_path) {
                 eprintln!("check error: {}", e);
                 process::exit(1);
             }
@@ -309,6 +356,7 @@ fn process_files(main_args: functions::Argumentos,files :Vec<String>){
                         &arquivo_chegada.clone(),
                         main_args.buffer_size as usize,
                         main_args.block_size as usize,                        
+                        main_args.n_max_concur
                     ){
                         
 
