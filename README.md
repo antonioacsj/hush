@@ -14,7 +14,7 @@ To big files, it divides into blocks, hashes them in a multithread/multiworker, 
 
 Rash uses multi-threaded processing to hash file blocks, improving speed on large files. After hashing each block, it generates a final hash by combining the hashes of all blocks in sequence.
 
-![alt text](https://github.com/antonioacsj/rash/blob/master/etc/blocks.jpg?raw=true)
+![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
 
 ### Parameters
 
