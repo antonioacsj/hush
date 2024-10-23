@@ -1,9 +1,9 @@
 # Rash - Hash Tool for Rush people
 
-Rash is a high-performance hashing algorithm designed to handle increasingly larger files by utilizing parallel computation.
+Rash is a hashing algorithm designed to handle increasingly larger files by utilizing parallel/concurrent computation and make the work faster.
 
-To small files, computes hashes in a multithread environment.
-To big files, it divides into blocks, hashes them in parallel, and then combines the block hashes into a final hash, similar to how a blockchain works.
+To files smaller than block size, computes hashes in a single block, in a multithread environment.
+To big files, it divides into blocks, hashes them in a multithread/multiworker, and then combines the block hashes into a final hash, similar to how a blockchain works. (See picture.)
 
 ## Supported Algorithms
 
@@ -20,7 +20,8 @@ Rash uses multi-threaded processing to hash file blocks, improving speed on larg
 
 - `blockSize`: Defines the size of the chunks the file will be split into for hashing.
 - `bufferSize`: Defines the size of the buffer the file will be read into.
-- `workers`: Defines the amount of workers to parallelize .
+- `workers`: Defines the amount of workers to parallelize.
+- `numcpus`: Defines the amount of cpus to use.
 
 ### Example Usage
 
@@ -36,4 +37,4 @@ rash check <path_to_file_with_hash>
 
 ```
 
-#Obs: Block size in verification has to be the same of generation. So it will use of line with format
+#Obs: The block size in verification has to be the same of generation. This information is showed in result and, by default, its 50MB. When save the hash, save the blockSize information too.
