@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use clap::{Arg, Command};
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use functions::{hash_rsha256, hash_sha256};
@@ -56,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.len() < 3 {
         eprintln!("Use: {} <command> <file_path> <dest_folder_path>?", args[0]);
-        eprintln!("Commands: 'gen','rsha256','split','rebuild','sha256' ");
+        eprintln!("Commands: 'gen', 'check', 'rsha256','split','rebuild','sha256' ");
         eprintln!("Option: '--log' to print logs");
         eprintln!(
             "Option: '--blocksize Value' to change size that file block is divided. Default {}. Use KB, MB, GB, TB",
@@ -225,25 +226,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             
             if args.len() < 3 {
-                eprintln!("Use: {} gen <file_path> <file_filter>?", args[0]);
-                eprintln!("<file_path>: file_path to gen.");
-                eprintln!("<file_filter>: pattern glob. Ex: mp4");
+                eprintln!("Use: {} gen <file_path> ", args[0]);
+                eprintln!("<file_path>: file_path to gen.");                
 
                 process::exit(1);
-            }
-            let file_path = &args[2];
+            }            
+            
             let recurse_dir=true;
-            
-            let mut file_filter = "";
-            /* 
-            if args.len() > 2 {
-                file_filter = &args[3];
-            }
-            */
-            
-            debug!("search_files: {} {}",file_path,file_filter)    ;
+                                    
+            debug!("search_files: {} ",file_path)    ;
             let results =         
-            search_files(file_path, file_filter, recurse_dir).unwrap();
+            search_files(file_path , recurse_dir).unwrap();
 
             process_files(main_args, results);
 
@@ -251,6 +244,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         "check" => {
+            if args.len() < 3 {
+                eprintln!("Use: {} check <file_path> <dir_work>?", args[0]);
+                eprintln!("<file_path>: file_path to check.");
+                eprintln!("<dir_work>: set work dir where files are.");
+
+                process::exit(1);
+            }
+
             if let Err(e) = functions::read_and_parse_file(main_args,file_path) {
                 eprintln!("check error: {}", e);
                 process::exit(1);
@@ -357,9 +358,7 @@ fn process_files(main_args: functions::Argumentos,files :Vec<String>){
                         main_args.buffer_size as usize,
                         main_args.block_size as usize,                        
                         main_args.n_max_concur
-                    ){
-                        
-
+                    ){                      
                         Ok(hash_calculado) => {
                             
                             let fileCalculado= TFileHash{
@@ -430,60 +429,39 @@ fn process_files(main_args: functions::Argumentos,files :Vec<String>){
     info!("Total files a processar:{}",n_files_a_processar);
     info!("Total files processados:{}",n_files_prontos);
 
-    /* 
-    for file in files {
-        //println!("{}", file);
-        info!("{}",file);
-    }
-    */
-
 }
 
 
 
-
-fn search_files(path: &str, pattern: &str, recursive: bool) -> Result<Vec<String>, std::io::Error> {
+fn search_files(pattern: &str, recursive: bool) -> Result<Vec<String>, io::Error> {
     let mut results = Vec::new();
 
-    // Verifica se o caminho é um diretório
-    if !path.ends_with('/') {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Path must end with a slash",
-        ));
+    // Verifica se o caminho é um arquivo
+    if Path::new(pattern).is_file() {
+        results.push(pattern.to_string());
+        return Ok(results) // Retorna já que é um arquivo, não precisa continuar
     }
 
-    // Cria o padrão de glob completo
+    let mut glob_pattern= pattern.to_string();
+    if Path::new(pattern).is_dir() {
+        glob_pattern =  format!("{}/**/*", pattern); 
+    }
 
-    let pattern_to_use = if pattern.is_empty() {
-        format!("{}**/*", path)
-    } else {
-        pattern.to_string()
-    };
-
-    // Itera sobre os arquivos que correspondem ao padrão
-    // for entry in glob(&pattern_to_use) {
-    // Itera sobre os arquivos que correspondem ao padrão
-
-    //for entry in glob("/media/**/*.jpg").expect("Failed to read glob pattern") {
-    for entry in glob(&pattern_to_use).expect("Failed to read glob pattern") {
+    info!("Glob to use: {}", glob_pattern);
+    for entry in glob(&glob_pattern).expect("Failed to read glob pattern") {
         match entry {
             Ok(path) => {
-                let path_str = path.to_str().unwrap();
-                if path_str.ends_with('/') && recursive {
-                    // Se for um diretório e a busca é recursiva, chama a função recursivamente
-                    results.extend(search_files(path_str, pattern, recursive)?);
-                } else {
-                    // Adiciona o arquivo à lista de resultados
-                    results.push(path_str.to_string());
+                if path.is_file() {
+                    if let Some(path_str) = path.to_str() {
+                        results.push(path_str.to_string());
+                    }
                 }
             }
             Err(e) => {
-                eprintln!("Error: {}", e);
-                return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, e));
+                eprintln!("Erro ao processar o caminho: {}", e);
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, e));
             }
         }
-    }
-
+    }          
     Ok(results)
 }
