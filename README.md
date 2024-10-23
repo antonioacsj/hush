@@ -2,8 +2,12 @@
 
 `rash` is a hashing algorithm designed to handle increasingly larger files by utilizing parallel/concurrent computation and make the work faster.
 
-To files smaller than block size, computes hashes in a single block, in a multithread environment.
-To big files, it divides into blocks, hashes them in a multithread/multiworker, and then combines the block hashes into a final hash, similar to how a blockchain works. (See picture.)
+To files smaller than block size, computes hashes in a single block.
+To big files, it divides into blocks, hashes them, and then combines the block hashes into a final hash, similar to how a blockchain works. (See picture.)
+The work is made in a multithread/multiworker environment, to try maximize speed to generate or verify integrity of
+big volume of data.
+
+If you know some way to do this task faster, please, help us!
 
 ## How It Works
 
@@ -33,11 +37,11 @@ rash --help
 rash gen <path_to_hash> --log --n_workers 2 --n_max_concur 5
 
 # Using rsha256 with a block size of 64MB
-rash rsha256 --blockSize 64MB <path_to_file>
+rash rsha256 --blocksize 64MB <path_to_file>
 
 # Using rsha256 to check a file with hash generated:
 rash check <path_to_file_with_hash>
 
 ```
 
-#Obs: The block size in verification has to be the same of generation. This information is showed in result and, by default, its 50MB. When save the hash, save the blockSize information too.
+### Obs: The block size in verification process has to be the same of generation (of course!). So, this information is showed in result and, by default, its 50MB. When save the hash, save the blocksize information too.
