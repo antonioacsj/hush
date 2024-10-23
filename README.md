@@ -7,7 +7,7 @@ To big files, it divides into blocks, hashes them, and then combines the block h
 The work is made in a multithread/multiworker environment, to try maximize speed to generate or verify integrity of
 big volume of data.
 
-If you know some way to do this task faster, please, help us!
+### ⚠️ If you know some way to do this task faster, please, help us!
 
 ### How It Works
 
