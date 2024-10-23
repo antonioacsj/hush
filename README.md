@@ -15,11 +15,9 @@ Rash uses multi-threaded processing to hash file blocks, improving speed on larg
 
 ![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
 
-### Very Important!
+### ⚠️ Important Note: When save the hash, save the blocksize information too.
 
-Obs: The block size in verification process has to be the same of generation (of course!). So, this information is showed in result and, by default, its 50MB.
-
-# ⚠️ Important Note: When save the hash, save the blocksize information too.
+The block size in verification process **has to be the same of generation** (of course!). So, this information is showed in the result. Register the hash with algorithm and block!
 
 ## Supported Algorithms
 
