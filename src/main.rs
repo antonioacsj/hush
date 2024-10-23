@@ -1,17 +1,19 @@
+use clap::{Arg, Command};
 use crossbeam_channel::{unbounded, Receiver, Sender};
+use glob::glob;
 use log::{info, warn, LevelFilter};
 use num_cpus;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
 use std::env;
-use std::fs::{self, File};
-use std::io::BufRead;
-use std::io::{self, BufReader, Read, Seek, Write};
+use std::fs::{self, DirEntry, File};
+use std::io::{self, BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 use std::process;
 use std::result::Result;
 use std::thread;
 use std::time::Instant;
+use std::time::SystemTime;
 
 static LOG_ENABLED: OnceCell<bool> = OnceCell::new();
 /*
@@ -519,7 +521,7 @@ fn read_and_parse_file(file_path: &str) -> io::Result<()> {
     }
     Ok(())
 }
-
+/*
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Coletando os argumentos da linha de comando
     let start = Instant::now();
@@ -653,4 +655,295 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let duration = start.elapsed();
     info!("Execution Time: {:?}", duration);
     Ok(())
+}
+
+*/
+
+fn main2() {
+    let matches = Command::new("cli_tool")
+        .version("1.0")
+        .author("Your Name")
+        .about("CLI tool for file operations")
+        .arg(
+            Arg::new("workers")
+                .long("workers")
+                .help("Number of workers")
+                .num_args(1) // Replaces .takes_value(true)
+                .value_parser(clap::value_parser!(u32)),
+        )
+        .arg(
+            Arg::new("numcpus")
+                .long("numcpus")
+                .help("Number of CPUs")
+                .num_args(1) // Replaces .takes_value(true)
+                .value_parser(clap::value_parser!(u32)),
+        )
+        .arg(
+            Arg::new("block_size")
+                .long("block_size")
+                .help("Size of blocks to process")
+                .num_args(1), // Replaces .takes_value(true)
+        )
+        .arg(
+            Arg::new("buffer_size")
+                .long("buffer_size")
+                .help("Size of the buffer")
+                .num_args(1), // Replaces .takes_value(true)
+        )
+        .arg(
+            Arg::new("log")
+                .long("log")
+                .help("Enable or disable logging")
+                .action(clap::ArgAction::SetTrue), // Adds a boolean flag
+        )
+        .subcommand(
+            Command::new("gen")
+                .about("Generates something")
+                .arg(
+                    Arg::new("file_path")
+                        .help("Path to the input file")
+                        .required(true)
+                        .num_args(1),
+                )
+                .arg(
+                    Arg::new("dir")
+                        .help("Directory path")
+                        .required(true)
+                        .num_args(1),
+                ),
+        )
+        .subcommand(
+            Command::new("split")
+                .about("Splits a file")
+                .arg(
+                    Arg::new("file_path")
+                        .help("Path to the input file")
+                        .required(true)
+                        .num_args(1),
+                )
+                .arg(
+                    Arg::new("dir")
+                        .help("Directory path")
+                        .required(true)
+                        .num_args(1),
+                ),
+        )
+        .subcommand(
+            Command::new("rebuild")
+                .about("Rebuilds a file")
+                .arg(
+                    Arg::new("file_path")
+                        .help("Path to the input file")
+                        .required(true)
+                        .num_args(1),
+                )
+                .arg(
+                    Arg::new("dir")
+                        .help("Directory path")
+                        .required(true)
+                        .num_args(1),
+                ),
+        )
+        .get_matches();
+
+    // Retrieve global options
+    let workers = matches.get_one::<u32>("workers").unwrap_or(&4);
+    let numcpus = matches.get_one::<u32>("numcpus").unwrap_or(&2);
+    let binding_a = "64k".to_string();
+    let block_size = matches
+        .get_one::<String>("block_size")
+        .unwrap_or(&binding_a);
+    let binding_b = "128k".to_string();
+    let buffer_size = matches
+        .get_one::<String>("buffer_size")
+        .unwrap_or(&binding_b);
+
+    let logging_enabled = matches.get_flag("log"); // Retrieve log flag status
+
+    if logging_enabled {
+        println!("Logging is enabled");
+    } else {
+        println!("Logging is disabled");
+    }
+
+    match matches.subcommand() {
+        Some(("gen", sub_m)) => {
+            let file_path = sub_m.get_one::<String>("file_path").unwrap();
+            let dir = sub_m.get_one::<String>("dir").unwrap();
+
+            println!(
+                "Running gen with file_path: {}, dir: {}, workers: {}, numcpus: {}, block_size: {}, buffer_size: {}",
+                file_path, dir, workers, numcpus, block_size, buffer_size
+            );
+        }
+        Some(("split", sub_m)) => {
+            let file_path = sub_m.get_one::<String>("file_path").unwrap();
+            let dir = sub_m.get_one::<String>("dir").unwrap();
+
+            println!(
+                "Running split with file_path: {}, dir: {}, workers: {}, numcpus: {}, block_size: {}, buffer_size: {}",
+                file_path, dir, workers, numcpus, block_size, buffer_size
+            );
+        }
+        Some(("rebuild", sub_m)) => {
+            let file_path = sub_m.get_one::<String>("file_path").unwrap();
+            let dir = sub_m.get_one::<String>("dir").unwrap();
+
+            println!(
+                "Running rebuild with file_path: {}, dir: {}, workers: {}, numcpus: {}, block_size: {}, buffer_size: {}",
+                file_path, dir, workers, numcpus, block_size, buffer_size
+            );
+        }
+        _ => println!("No valid subcommand was used"),
+    }
+}
+
+fn main() {
+    let matches = Command::new("cli_tool")
+        .version("1.0")
+        .author("Your Name")
+        .about("CLI tool for file operations")
+        .arg(
+            Arg::new("workers")
+                .long("workers")
+                .help("Number of workers")
+                .num_args(1)
+                .value_parser(clap::value_parser!(u32)),
+        )
+        .arg(
+            Arg::new("numcpus")
+                .long("numcpus")
+                .help("Number of CPUs")
+                .num_args(1)
+                .value_parser(clap::value_parser!(u32)),
+        )
+        .arg(
+            Arg::new("block_size")
+                .long("block_size")
+                .help("Size of blocks to process")
+                .num_args(1),
+        )
+        .arg(
+            Arg::new("buffer_size")
+                .long("buffer_size")
+                .help("Size of the buffer")
+                .num_args(1),
+        )
+        .arg(
+            Arg::new("log")
+                .long("log")
+                .help("Enable or disable logging")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("filter")
+                .long("filter")
+                .help("Filter for files (e.g., *.mp4)")
+                .num_args(1),
+        )
+        .arg(
+            Arg::new("recursive")
+                .short('R')
+                .help("Operate recursively in directories")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .subcommand(
+            Command::new("gen")
+                .about("Generates something")
+                .arg(
+                    Arg::new("dir")
+                        .help("Directory path")
+                        .required(true)
+                        .num_args(1),
+                )
+                .arg(Arg::new("ff").help("ff filter").required(true).num_args(1)),
+        )
+        .get_matches();
+
+    // Retrieve global options
+    let workers = matches.get_one::<u32>("workers").unwrap_or(&4);
+    let numcpus = matches.get_one::<u32>("numcpus").unwrap_or(&2);
+    let binding_bs = "64k".to_string();
+    let block_size = matches
+        .get_one::<String>("block_size")
+        .unwrap_or(&binding_bs);
+    let binding_bf = "128k".to_string();
+    let buffer_size = matches
+        .get_one::<String>("buffer_size")
+        .unwrap_or(&binding_bf);
+    let logging_enabled = matches.get_flag("log");
+    let recursive = matches.get_flag("recursive");
+
+    if logging_enabled {
+        println!("Logging is enabled");
+    } else {
+        println!("Logging is disabled");
+    }
+
+    match matches.subcommand() {
+        Some(("gen", sub_m)) => {
+            let dir = sub_m.get_one::<String>("dir").unwrap();
+
+            let filter = matches.get_one::<String>("filter");
+            println!(
+                "Running gen in dir: {}, workers: {}, numcpus: {}, block_size: {}, buffer_size: {}, recursive: {}, filter:{:?}",
+                dir, workers, numcpus, block_size, buffer_size, recursive,filter
+            );
+            let results = match filter {
+                Some(f) => search_files(dir, f, recursive).unwrap(),
+                None => search_files(dir, "", recursive).unwrap(), // Ou defina um comportamento padrão
+            };
+
+            for file in results {
+                println!("{}", file);
+            }
+        }
+        _ => println!("No valid subcommand was used"),
+    }
+}
+
+fn search_files(path: &str, pattern: &str, recursive: bool) -> Result<Vec<String>, std::io::Error> {
+    let mut results = Vec::new();
+
+    // Verifica se o caminho é um diretório
+    if !path.ends_with('/') {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Path must end with a slash",
+        ));
+    }
+
+    // Cria o padrão de glob completo
+
+    let pattern_to_use = if pattern.is_empty() {
+        format!("{}**/*.*", path)
+    } else {
+        pattern.to_string()
+    };
+
+    // Itera sobre os arquivos que correspondem ao padrão
+    // for entry in glob(&pattern_to_use) {
+    // Itera sobre os arquivos que correspondem ao padrão
+
+    //for entry in glob("/media/**/*.jpg").expect("Failed to read glob pattern") {
+    for entry in glob(&pattern_to_use).expect("Failed to read glob pattern") {
+        match entry {
+            Ok(path) => {
+                let path_str = path.to_str().unwrap();
+                if path_str.ends_with('/') && recursive {
+                    // Se for um diretório e a busca é recursiva, chama a função recursivamente
+                    results.extend(search_files(path_str, pattern, recursive)?);
+                } else {
+                    // Adiciona o arquivo à lista de resultados
+                    results.push(path_str.to_string());
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, e));
+            }
+        }
+    }
+
+    Ok(results)
 }
