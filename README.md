@@ -1,6 +1,6 @@
-# Rash - Hash Tool for Rush people
+# rash - Hash tool for rush people
 
-Rash is a hashing algorithm designed to handle increasingly larger files by utilizing parallel/concurrent computation and make the work faster.
+`rash` is a hashing algorithm designed to handle increasingly larger files by utilizing parallel/concurrent computation and make the work faster.
 
 To files smaller than block size, computes hashes in a single block, in a multithread environment.
 To big files, it divides into blocks, hashes them in a multithread/multiworker, and then combines the block hashes into a final hash, similar to how a blockchain works. (See picture.)
