@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 use clap::{Arg, Command};
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use functions::{hash_rsha256, hash_sha256};
+use functions::{hash_rsha256, hash_sha256,gera_caminho_relativo};
 use glob::glob;
 use log::{info, warn,debug, LevelFilter};
 
@@ -150,8 +150,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let comando = &args[1];
     let file_path = &args[2];
     
-
-    
+    main_args.in_file_path=file_path.to_string();
+  
 
     // Executando a função correspondente com base no comando fornecido
     main_args.sub_comando=comando.to_string();
@@ -249,8 +249,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 process::exit(1);
             }
+            let mut work_dir = ".";
+            if args.len() > 3 {
+                 work_dir = &args[3];
+            }
 
-            if let Err(e) = functions::read_and_parse_file(main_args,file_path) {
+            if let Err(e) = functions::read_and_parse_file(main_args,file_path,work_dir) {
                 eprintln!("check error: {}", e);
                 process::exit(1);
             }
@@ -390,7 +394,10 @@ fn process_files(main_args: functions::Argumentos,files :Vec<String>){
                                 valor_hash: hash_calculado.clone()
                             };
                             sender_files_calculados_clone.send(fileCalculado).unwrap();
-                            info!("{} {}?{} ",arquivo_chegada.clone(),algor_hash_tmp_sha256.clone(),hash_calculado.clone())
+                            
+                         //   println!("{0} ?{1}*{2}",filePronto.valor_hash,filePronto.alg_hash,filePronto.path);
+
+                            info!("{} ?{}*{} ",arquivo_chegada.clone(),algor_hash_tmp_sha256.clone(),hash_calculado.clone())
                         }
                         Err(e) =>{
                             eprintln!("Error sha256: {} with: {}", e,arquivo_chegada); 
@@ -410,7 +417,19 @@ fn process_files(main_args: functions::Argumentos,files :Vec<String>){
     while let Ok(filePronto) = receiver_files_calculados.recv() {
         //  println!("Recebido Bloco {} no resultado", bloco.n_bloco);
         info!("+");
-        io::stdout().flush().expect("Failed to flush stdout");
+        io::stdout().flush().expect("Failed to flush stdout");                       
+        match gera_caminho_relativo(&filePronto.path.clone(),&main_args.in_file_path.clone()) {
+            Some(caminho_relativo) =>{
+                info!("Caminho relativo: {}", caminho_relativo.display());
+                println!("{0} ?{1}*{2}",filePronto.valor_hash,filePronto.alg_hash,caminho_relativo.display());
+            } 
+            None => { 
+                eprintln!("Erro: {} não é um prefixo {}",filePronto.path,main_args.in_file_path);
+            }
+            
+        }
+
+        
         resultados.push(filePronto);
     }
 
@@ -418,12 +437,14 @@ fn process_files(main_args: functions::Argumentos,files :Vec<String>){
     for handle in handles {
         handle.join().unwrap();
     }
-
+    /* */
     //resultados.sort_by_key(|filePronto| filePronto.path);
     let n_files_prontos=resultados.len();
+    /* 
     for filePronto in resultados {
-        info!("{0} {1}?{2}",filePronto.valor_hash,filePronto.alg_hash,filePronto.path);    
+        println!("{0} {1}?{2}",filePronto.valor_hash,filePronto.alg_hash,filePronto.path);            
     }
+    */
     info!("Total files a processar:{}",n_files_a_processar);
     info!("Total files processados:{}",n_files_prontos);
 
@@ -436,7 +457,7 @@ fn search_files(pattern: &str) -> Result<Vec<String>, io::Error> {
 
     // Verifica se o caminho é um arquivo
     if Path::new(pattern).is_file() {
-        results.push(pattern.to_string());
+        results.push(pattern.to_string().replace("\\", "/"));
         return Ok(results) // Retorna já que é um arquivo, não precisa continuar
     }
 
@@ -451,7 +472,7 @@ fn search_files(pattern: &str) -> Result<Vec<String>, io::Error> {
             Ok(path) => {
                 if path.is_file() {
                     if let Some(path_str) = path.to_str() {
-                        results.push(path_str.to_string());
+                        results.push(path_str.to_string().replace("\\", "/"));
                     }
                 }
             }

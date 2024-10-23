@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use std::env;
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader, Read, Seek, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::result::Result;
 use std::thread;
@@ -39,6 +39,57 @@ pub struct Argumentos {
     pub out_file_path: String,
 }
 
+pub fn gera_caminho_completo(caminho_relativo_in: &str, caminho_pai_in: &str) -> PathBuf {
+    info!(
+        "Caminho relativo chegada*{}*",
+        caminho_relativo_in.to_string()
+    );
+    info!("Caminho Pai chegada*{}*", caminho_pai_in.to_string());
+
+    let mut caminho_pai = caminho_pai_in
+        .to_string()
+        .replace("\\", "/")
+        .trim()
+        .to_string();
+    let mut caminho_relativo = caminho_relativo_in
+        .to_string()
+        .replace("\\", "/")
+        .trim()
+        .to_string();
+    info!(
+        "Caminho relativo pos chegada*{}*",
+        caminho_relativo.to_string()
+    );
+    info!("Caminho Pai pos chegada*{}*", caminho_pai.to_string());
+
+    // Verificar se caminhoPai termina com "/" e adicionar se necessário
+    if !caminho_pai.trim_end().ends_with('/') {
+        caminho_pai.push('/');
+    }
+    /*
+    // Verificar se caminhoRelativo começa com "." e adicionar se necessário
+    if !caminho_relativo.trim_start().starts_with('.') {
+        info!("Adicionando '.' no caminho relativo*{}*", caminho_relativo);
+        caminho_relativo = format!("./{}", caminho_relativo);
+    }
+    */
+
+    // Combinar os caminhos usando PathBuf
+    Path::new(&caminho_pai).join(Path::new(&caminho_relativo))
+}
+pub fn gera_caminho_relativo(caminho1: &str, caminho_pai: &str) -> Option<PathBuf> {
+    let caminho1 = Path::new(caminho1);
+    let caminho_pai = Path::new(caminho_pai);
+
+    // Tentar remover o prefixo (caminho pai)
+    match caminho1.strip_prefix(caminho_pai) {
+        Ok(caminho_relativo) => {
+            // Retornar o caminho relativo com "./" na frente
+            Some(PathBuf::from("./").join(caminho_relativo))
+        }
+        Err(_) => None, // Retorna None se o caminhoPai não for prefixo de caminho1
+    }
+}
 pub fn ParseSize(size_str: &str) -> Result<u64, &'static str> {
     // Remove any whitespace and convert the string to uppercase
     let size_str = size_str.trim().to_uppercase();
@@ -468,7 +519,28 @@ fn parse_line(line: &str) -> Option<(String, String, String, String)> {
     }
 }
 
-pub fn read_and_parse_file(main_args: Argumentos, file_path: &str) -> io::Result<()> {
+pub fn read_and_parse_file(
+    main_args: Argumentos,
+    file_path: &str,
+    work_dir: &str,
+) -> io::Result<()> {
+
+    println!(
+        "Running subcommand:{} , with: \n in_file_path: {}, work_dir: {}, workers: {}, max_concur: {}, block_size: {}, buffer_size: {}, recursive_enabled: {}, filter:{:?}, log_enabled:{}, out_file_path:{}",
+        main_args.sub_comando,        
+        main_args.in_file_path,
+        work_dir,        
+        main_args.n_workers,
+        main_args.n_max_concur,
+        main_args.block_size_str,
+        main_args.buffer_size_str,
+        main_args.recursive_enabled,
+        main_args.in_file_filter,
+        main_args.log_enabled,
+        main_args.out_file_path
+        
+    );
+
     let path = Path::new(file_path);
     let file = File::open(&path)?;
     let reader = BufReader::new(file);
@@ -478,45 +550,79 @@ pub fn read_and_parse_file(main_args: Argumentos, file_path: &str) -> io::Result
         match line_result {
             Ok(line) => {
                 // Parse each line
-                if let Some((hash_final, hash_alg, chunk_size_str, file_path)) = parse_line(&line) {
-                    // Print or use the variables
-                    println!("Hash Final: {}", hash_final);
-                    println!("Hash Algorithm: {}", hash_alg);
-                    println!("Chunk Size: {}", chunk_size_str);
-                    println!("File Path: {}", file_path);
+                if let Some((hash_lido, rest)) = line.split_once('?') {
+                    // Split the remaining part by `*` to separate algorithm and path
+                    if let Some((algorithm, file_path_relativo)) = rest.split_once('*') {
+                        info!("Hash Lido: {}", hash_lido);
+                        info!("Algorithm: {}", algorithm);
+                        info!("File Relative Path: {}", file_path_relativo);
+                        let file_path_completo =
+                            gera_caminho_completo(file_path_relativo, work_dir);
+                        let file_path_completo_dados = file_path_completo.to_str().unwrap();
+                        info!("File Path Completo: {}", file_path_completo_dados);
 
-                    let buffer_size_padrao = 8 * 1024 as usize; // 8K
-                    let check_hash = true;
-                    let hash_to_check = hash_final.trim().to_lowercase();
-                    let chunk_size = ParseSize(&chunk_size_str).unwrap() as usize;
-                    if let Err(e) = hash_rsha256(
-                        &file_path,
-                        buffer_size_padrao,
-                        chunk_size,
-                        main_args.n_max_concur,
-                    ) {
-                        eprintln!("r-sha256 error: {}", e);
-                        process::exit(1);
-                    }
-                    /*
-                    if check_hash {
-                        if hash_to_check.trim().to_lowercase() == hash_final.trim().to_lowercase() {
-                            println!("Sucess. Hashes matched!");
+                        if let Some((algorithmRash, blocksize_str)) = algorithm.split_once('-') {
+                            info!("AlgorithmRash: {}", algorithmRash);
+                            info!("blocksize: {}", blocksize_str);
+                            match ParseSize(blocksize_str) {
+                                Ok(blocksize_recovered) => {
+                                    match hash_rsha256(
+                                        file_path_completo_dados,
+                                        main_args.buffer_size as usize,
+                                        blocksize_recovered as usize,
+                                        main_args.n_max_concur,
+                                    ) {
+                                        Ok(hash_calculado) => {
+                                            info!("Hash Calculated: {}", hash_calculado);
+                                            if hash_calculado.to_lowercase().trim()
+                                                == hash_lido.to_lowercase().trim()
+                                            {
+                                                info!("Hashes matched!");
+                                            } else {
+                                                // Erro na checagem
+                                                eprintln!("Error. Does not match!");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("rsha256 error: {}", e);
+                                            process::exit(1);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("r-sha256 error: {}", e);
+                                    process::exit(1);
+                                }
+                            }
                         } else {
-                            // Erro na checagem
-                            println!("Error. Does not match!");
-                            println!("  Hash to check: {}", hash_to_check);
-                            println!("Hash Calculated: {}", hash_final);
+                            match hash_sha256(&file_path, main_args.buffer_size as usize) {
+                                Ok(hash_calculado) => {
+                                    info!("Hash Calculated: {}", hash_calculado);
+                                    if hash_calculado.to_lowercase().trim()
+                                        == hash_lido.to_lowercase().trim()
+                                    {
+                                        info!("Hashes matched!");
+                                    } else {
+                                        // Erro na checagem
+                                        eprintln!("Error. Does not match!");
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("sha256 error: {}", e);
+                                    process::exit(1);
+                                }
+                            }
                         }
+                    } else {
+                        eprintln!("Invalid format: missing '*' in {}", line);
                     }
-                    */
                 } else {
-                    println!("Invalid line format: {}", line);
+                    eprintln!("Invalid format: missing '?' in {}", line);
                 }
             }
             Err(err) => {
                 // Handle the error if reading the line fails
-                println!("Error reading line: {}", err);
+                eprintln!("Error reading line: {}", err);
             }
         }
     }
