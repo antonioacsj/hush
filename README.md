@@ -20,14 +20,17 @@ Rash uses multi-threaded processing to hash file blocks, improving speed on larg
 
 - `blockSize`: Defines the size of the chunks the file will be split into for hashing.
 - `bufferSize`: Defines the size of the buffer the file will be read into.
-- `workers`: Defines the amount of workers to parallelize.
-- `numcpus`: Defines the amount of cpus to use.
+- `n_workers`: Defines the amount of workers to use in main pool.
+- `n_max_concur`: Defines the amount of maximum concurrent access to each file (threads to each file).
 
 ### Example Usage
 
 ```bash
 # Using rsha256
-rash rsha256 <path_to_file>
+rash --help
+
+# Using log, n_workers=2 and n_max_concur=5
+rash gen <path_to_hash> --log --n_workers 2 --n_max_concur 5
 
 # Using rsha256 with a block size of 64MB
 rash rsha256 --blockSize 64MB <path_to_file>
