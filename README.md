@@ -9,7 +9,7 @@ big volume of data.
 
 If you know some way to do this task faster, please, help us!
 
-## How It Works
+### How It Works
 
 Rash uses multi-threaded processing to hash file blocks, improving speed on large files. After hashing each block, it generates a final hash by combining the hashes of all blocks in sequence.
 
@@ -17,7 +17,9 @@ Rash uses multi-threaded processing to hash file blocks, improving speed on larg
 
 ### Very Important!
 
-Obs: The block size in verification process has to be the same of generation (of course!). So, this information is showed in result and, by default, its 50MB. When save the hash, save the blocksize information too.
+Obs: The block size in verification process has to be the same of generation (of course!). So, this information is showed in result and, by default, its 50MB.
+
+**<span style="color: red;">When save the hash, save the blocksize information too.</span>**
 
 ## Supported Algorithms
 
