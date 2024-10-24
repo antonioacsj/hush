@@ -20,29 +20,31 @@ All work is made in a multithread environment, to maximize speed.
 
 ![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
 
-### ⚠️ Important Note: When save the hash, save the information of algorithm and blocksize used !
+### ⚠️ Register the hash with algorithm and block!
 
-The block size in verification process **NEEDS to be the same of generation** (of course!). So, this information is showed in the result. Register the hash with algorithm and block!
+The block size in verification process **NEEDS to be the same of generation** (of course!). So, this information is showed in the result.
 
-## Supported Algorithms
+## Supported Algorithms to hash Blocks
 
-- **rsha256-Blocksize** (default) - Hash file in blocks with sha256 of size: Bloksize
-- **others** (planned support) - Hash the blocks with others hash algorithms
+- **sha256** (default) -
 
 ### Example Usage
 
 ```bash
-# Using rsha256
+# Help
 hush --help
 
-# Using log, n_workers=2 and n_max_concur=5
+# Generating hashes
+hush gen <path_to_hash>
+
+# Generating hashes saving result in a file named hashes.txt
+hush gen <path_to_hash>  > hashes.txt
+
+#Checking hashes in 'hashes.txt' using a dir as base of work
+hush check hashes.txt <work_dir_base>
+
+# Generating hashes with options
 hush gen <path_to_hash> --log --n_workers 2 --n_max_concur 5
-
-# Using rsha256 with a block size of 64MB
-hush rsha256 <path_to_file> --blocksize 64MB
-
-# Using rsha256 to check a file with hash generated:
-hush check <file_with_hash> <work_dir_base> <parameters>
 
 ```
 
