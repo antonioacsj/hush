@@ -1,4 +1,4 @@
-# rush - Hash tool for rush people
+# rush - Hash tool for rush situations
 
 `rush` is a hashing algorithm designed to handle increasingly larger files by utilizing parallel/concurrent computation and make the work faster.
 
@@ -21,13 +21,15 @@ The block size in verification process **NEEDS to be the same of generation** (o
 
 ## Supported Algorithms
 
-- **rsha256-BLK** (default) - Hash the blocks with sha256 using blocksize: BLK
-- **rsha512** (planned support) - Hash the blocks with sha512
+- **rsha256-Blocksize** (default) - Hash file in blocks with sha256 of size: Bloksize
+- **others** (planned support) - Hash the blocks with others hash algorithms
 
-### Blocksize (-BLK extra parameter)
+### Blocksize
 
-The block size is whats differs rush of traditional hash algorithms.
-B = 1 Byte!
+The blocksize is whats differs rush of traditional hash algorithms.
+Valid values: 15KB 10MB, 1GB, etc.
+
+where: **B = 1 Byte**
 
 ```rust
 //Rust implementation

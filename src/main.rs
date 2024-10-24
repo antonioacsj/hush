@@ -87,7 +87,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-
     if let Some(buffersize_index) = args.iter().position(|x| x == "--buffersize") {
         if let Some(size_str) = args.get(buffersize_index + 1) {
             main_args.buffer_size_str = size_str.to_string();
@@ -96,8 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("--buffersize provided without a value. Use KB, MB. Ex: --buffersize 8KB ");
             return Ok(());
         }
-    }
-    
+    }    
     
     if let Some(chunksize_index) = args.iter().position(|x| x == "--n_workers") {
         if let Some(size_str) = args.get(chunksize_index + 1) { 
@@ -213,25 +211,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 {
                     eprintln!("rsha256 error: {}", e);
                     process::exit(1);
-                }
-                 
-
-            }
-            
-           
-            
+                }                 
+            }                                  
         }
-        "gen" => {
-
-            
+        "gen" => {            
             if args.len() < 3 {
                 eprintln!("Use: {} gen <file_path> ", args[0]);
                 eprintln!("<file_path>: file_path to gen(glob pattern!).");                
-
                 process::exit(1);
-            }            
-            
-                                                
+            }                                                                        
             debug!("search_files: {} ",file_path)    ;
             let results =         
             search_files(file_path ).unwrap();
