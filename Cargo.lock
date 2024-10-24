@@ -288,20 +288,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rash"
-version = "0.1.0"
-dependencies = [
- "clap",
- "crossbeam-channel",
- "env_logger",
- "glob",
- "log",
- "num_cpus",
- "once_cell",
- "sha2",
-]
-
-[[package]]
 name = "regex"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -331,6 +317,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
+name = "rush"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "crossbeam-channel",
+ "env_logger",
+ "glob",
+ "log",
+ "num_cpus",
+ "once_cell",
+ "sha2",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -349,9 +349,9 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "syn"
-version = "2.0.82"
+version = "2.0.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83540f837a8afc019423a8edb95b52a8effe46957ee402287f4292fae35be021"
+checksum = "5023162dfcd14ef8f32034d8bcd4cc5ddc61ef7a247c024a33e24e1f24d21b56"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -7,7 +7,7 @@ To big files, it divides into blocks, hashes them, and then combines the block h
 The work is made in a multithread/multiworker environment, to try maximize speed to generate or verify integrity of
 big volume of data.
 
-### ⚠️ If you know some way to do this task faster, please, help us!
+### ⚠️ If you know some other way to hash big amount of files/data in ordinary computers, please, let me know!
 
 ### How It Works
 
@@ -17,12 +17,27 @@ Rush uses multi-threaded processing to hash file blocks, improving speed on larg
 
 ### ⚠️ Important Note: When save the hash, save the blocksize information too.
 
-The block size in verification process **has to be the same of generation** (of course!). So, this information is showed in the result. Register the hash with algorithm and block!
+The block size in verification process **NEEDS to be the same of generation** (of course!). So, this information is showed in the result. Register the hash with algorithm and block!
 
 ## Supported Algorithms
 
-- **rsha256** (default) - Hash the blocks with sha256
+- **rsha256-BLK** (default) - Hash the blocks with sha256 using blocksize: BLK
 - **rsha512** (planned support) - Hash the blocks with sha512
+
+### Blocksize (-BLK extra parameter)
+
+The block size is whats differs rush of traditional hash algorithms.
+B = 1 Byte!
+
+```rust
+//Rust implementation
+        "B" => Ok(number),
+        "KB" => Ok(number * 1_024),
+        "MB" => Ok(number * 1_024 * 1_024),
+        "GB" => Ok(number * 1_024 * 1_024 * 1_024),
+        "TB" => Ok(number * 1_024 * 1_024 * 1_024 * 1_024),
+
+```
 
 ### Example Usage
 
