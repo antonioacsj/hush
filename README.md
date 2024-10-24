@@ -24,7 +24,17 @@ All work is made in a multithread environment, to maximize speed.
 
 The blocksize in verification process **NEEDS to be the same of generation** (of course!).
 
-This information is showed in the result of generation process. **SAVE ALL DATA**.
+This information is showed in the result of generation process. **SAVE ALL DATA**, like below:
+
+```bash
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ?sha256*./sub1/sub2/Novo(a) Imagem de bitmap.bmp
+0a43092d0fc7036e79e45654d5a78b05caff3da5963542a7de3735d5cea7bda9 ?sha256*./sub1/hashs_saida.txt
+ccf0518aaae1687f2a17cb5f5d63fce1c80f03d99ab928d899144e7cf0cd852f ?sha256*./sub1/sub2/comp_rsha256.txt
+143d834b9818464dc13b6eff0ae55a6761f3ec97dcd37b5408457db4906aa02f ?sha256*./sub1/sub2/comp_hash_saida_fsum.txt
+5630d9f4b413c1986a42d4b6b69c758f8bd32ebf6ff7316d133a6cde0951cf94 ?hsha256-50MB*./65MB
+281d5d93464f1165ea7c403ca99d63ff4bf9a360864f8df4bd0e8e6c03774e98 ?hsha256-50MB*./196MB
+
+```
 
 ## Supported Algorithms to hash Blocks
 
