@@ -57,6 +57,7 @@ hush check C:/Folder1/hash_file.txt C:/Folder1/Data --progress --stop --log --n_
 
 ### Options to play :)
 
+```bash
 '--log' to print lots of boring stuff
 '--progress' to show that something is being done while you drink coffee.
 '--stop' Stop everything if some error. By default, don´t stop. (Make it in your way!)
@@ -65,3 +66,5 @@ hush check C:/Folder1/hash_file.txt C:/Folder1/Data --progress --stop --log --n_
 '--n_workers Value' to change how many workers will be used in main pool. Default 15.
 '--n_max_concur Value' to change how maximum number of concurrent access to each file, in pool of slaves. Default 15
 '--hash_alg Value' to change hash function to use. By default and supported: sha256
+
+```
