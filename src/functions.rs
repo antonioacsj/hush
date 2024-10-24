@@ -430,10 +430,13 @@ pub fn hash_hush(
     n_max_concur: u32,
     flag_show_progress: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    /* 
     info!(
         "hash_hush: alg:{} file: {} BufferSize:{} ",
         alg_str, file_path, buffer_size
     );
+    */
+    info!("hash_hush: file: {}", file_path);
 
     // Se tem - no algoritmo, é pq é hush
     if let Some((algorithmRash, blocksize_str)) = alg_str.split_once('-') {        
@@ -912,8 +915,8 @@ pub fn check_hash(
                     );
                     error_results.push(error_msg.clone());
                     error!("{}",error_msg);
-                    if main_args.flag_stop_on_first_error {
-                        eprintln!("{}",error_msg);
+                    eprintln!("{}",error_msg);
+                    if main_args.flag_stop_on_first_error {                        
                         process::exit(1);                            
                     }                            
                     continue;
@@ -921,12 +924,10 @@ pub fn check_hash(
                 let (hash_lido_tmp, rest) = split_result.unwrap();
                 
                     // Split the remaining part by `*` to separate algorithm and path
-                info!("Hash Lido raw:*{}*", hash_lido_tmp);
-                
+                //info!("Hash Lido raw:*{}*", hash_lido_tmp);                
                 let mut hash_lido = hash_lido_tmp.to_string();
-                let mut hash_lido2 = hash_lido.trim().to_string();
-                
-                info!("Hash Lido Trimmed:*{}*", hash_lido2.trim());
+                let mut hash_lido2 = hash_lido.trim().to_string();                
+                info!("Hash Lido:*{}*", hash_lido2.trim());
                 
                 let split_result2 = line.split_once('*');
                 if split_result2.is_none() { // Erro lendo ?
@@ -937,38 +938,39 @@ pub fn check_hash(
                     );
                     error_results.push(error_msg.clone());
                     error!("{}",error_msg);
+                    eprintln!("{}",error_msg);
                     if main_args.flag_stop_on_first_error {
-                        eprintln!("{}",error_msg);
+                        
                         process::exit(1);                            
                     }                            
                     continue;
                 }
 
-                 let (algorithm, file_path_relativo) = split_result2.unwrap();
+                 let (algorithm, file_to_check_path_relativo) = split_result2.unwrap();
                  /* 
                 info!("Algorithm:*{}*", algorithm);
                 info!("File Relative Path:*{}*", file_path_relativo); */
-                let file_path_completo =
-                    gera_caminho_completo(file_path_relativo, work_dir);
-                let file_path_completo_dados = file_path_completo.to_str().unwrap();
+                let file_to_check_path_completo_tmp =
+                    gera_caminho_completo(file_to_check_path_relativo, work_dir);
+                let file_to_check_path_completo = file_to_check_path_completo_tmp.to_str().unwrap();
              /*    info!("File Path Completo:*{}*", file_path_completo_dados); */
                 /* Testa se arquivo existe! */
-                if ! Path::new(file_path_completo_dados).is_file() {                                                        
+                if ! Path::new(file_to_check_path_completo).is_file() {                                                        
                     n_errors+=1;
                     let error_msg = format!(
                         "Error {}! Line:{} File:{} does not exist!",
-                            n_errors, n_linhas, file_path_completo_dados
+                            n_errors, n_linhas, file_to_check_path_completo
                     );
                     error_results.push(error_msg.clone());
                     error!("{}",error_msg);
-                    if main_args.flag_stop_on_first_error {
-                        eprintln!("{}",error_msg);
+                    eprintln!("{}",error_msg);
+                    if main_args.flag_stop_on_first_error {                        
                         process::exit(1);                            
                     }                            
                     continue;
                 }
                 match hash_hush(
-                    file_path_completo_dados,
+                    file_to_check_path_completo,
                     algorithm,
                     main_args.buffer_size as usize,
                     main_args.n_max_concur,
@@ -976,7 +978,7 @@ pub fn check_hash(
 
                 ) {
                     Ok(hash_calculado) => {
-                        /* info!("Hash Calculated:*{}*", hash_calculado); */
+                        info!("Hash Calculated:*{}*", hash_calculado);                         
                         let hash_calc=hash_calculado.to_lowercase().trim().to_string();
                         let hash_to_check = hash_lido.to_lowercase().trim().to_string();
                         if hash_to_check== hash_calc {
@@ -987,12 +989,12 @@ pub fn check_hash(
                             n_errors+=1;
                             let error_msg = format!(
                                 "Error {}! Line:{} File:{} Algorithm:{} HashRead:{} HashCalculated:{}: Hash doesnt match!",
-                                 n_errors, n_linhas,file_path_completo_dados, algorithm,hash_to_check,hash_calc                                                      
+                                 n_errors, n_linhas,file_to_check_path_completo, algorithm,hash_to_check,hash_calc                                                      
                             );
                             error_results.push(error_msg.clone());
                             error!("{}",error_msg);
-                            if main_args.flag_stop_on_first_error {
-                                eprintln!("{}",error_msg);
+                            eprintln!("{}",error_msg);
+                            if main_args.flag_stop_on_first_error {                                
                                 process::exit(1);                            
                             }      
                             continue;
@@ -1003,10 +1005,11 @@ pub fn check_hash(
                         n_errors+=1;
                         let error_msg = format!(
                             "Error {}: Line:{} File:{} Algorithm:{} : error{}:",
-                                n_errors, n_linhas,file_path_completo_dados, algorithm,e );
+                                n_errors, n_linhas,file_to_check_path_completo, algorithm,e );
                                 error_results.push(error_msg.clone());
+                        eprintln!("{}",error_msg);
                         if main_args.flag_stop_on_first_error {
-                            eprintln!("{}",error_msg);
+                            
                             process::exit(1);                            
                         }   
                         continue;
@@ -1021,8 +1024,8 @@ pub fn check_hash(
                 n_errors+=1;        
                 let error_msg = format!("Error {}! Line:{} File:{} => {}",
                      n_errors, n_linhas,file_path, e );
-                if main_args.flag_stop_on_first_error {
-                    eprintln!("{}",error_msg);
+                eprintln!("{}",error_msg);
+                if main_args.flag_stop_on_first_error {                    
                     process::exit(1);                            
                 }   
                 continue;
