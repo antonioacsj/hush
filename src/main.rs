@@ -408,7 +408,7 @@ fn process_files(main_args: functions::Argumentos,files :Vec<String>){
         io::stdout().flush().expect("Failed to flush stdout");                       
         match gera_caminho_relativo(&filePronto.path.clone(),&main_args.in_file_path.clone()) {
             Some(caminho_relativo) =>{
-                info!("Caminho relativo: {}", caminho_relativo.display());
+                info!("Caminho relativo.. Arrumar aqui: {}", caminho_relativo.display());
                 println!("{0} ?{1}*{2}",filePronto.valor_hash,filePronto.alg_hash,caminho_relativo.display());
             } 
             None => { 
