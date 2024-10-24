@@ -525,7 +525,7 @@ pub fn read_and_parse_file(
     work_dir: &str,
 ) -> io::Result<()> {
 
-    println!(
+    info!(
         "Running subcommand:{} , with: \n in_file_path: {}, work_dir: {}, workers: {}, max_concur: {}, block_size: {}, buffer_size: {}, recursive_enabled: {}, filter:{:?}, log_enabled:{}, out_file_path:{}",
         main_args.sub_comando,        
         main_args.in_file_path,
@@ -540,6 +540,9 @@ pub fn read_and_parse_file(
         main_args.out_file_path
         
     );
+    let mut n_errors=0;
+    let mut n_acertos=0;
+    let mut n_linhas=0;
 
     let path = Path::new(file_path);
     let file = File::open(&path)?;
@@ -550,20 +553,26 @@ pub fn read_and_parse_file(
         match line_result {
             Ok(line) => {
                 // Parse each line
-                if let Some((hash_lido, rest)) = line.split_once('?') {
+                n_linhas+=1;
+                if let Some((hash_lido_tmp, rest)) = line.split_once('?') {
                     // Split the remaining part by `*` to separate algorithm and path
-                    if let Some((algorithm, file_path_relativo)) = rest.split_once('*') {
-                        info!("Hash Lido: {}", hash_lido);
-                        info!("Algorithm: {}", algorithm);
-                        info!("File Relative Path: {}", file_path_relativo);
+                    info!("Hash Lido raw:*{}*", hash_lido_tmp);
+                    
+                    let mut hash_lido = hash_lido_tmp.to_string();
+                    let mut hash_lido2 = hash_lido.trim().to_string();
+                    
+                    info!("Hash Lido Trimmed:*{}*", hash_lido2.trim());
+                    if let Some((algorithm, file_path_relativo)) = rest.split_once('*') {                        
+                        info!("Algorithm:*{}*", algorithm);
+                        info!("File Relative Path:*{}*", file_path_relativo);
                         let file_path_completo =
                             gera_caminho_completo(file_path_relativo, work_dir);
                         let file_path_completo_dados = file_path_completo.to_str().unwrap();
-                        info!("File Path Completo: {}", file_path_completo_dados);
+                        info!("File Path Completo:*{}*", file_path_completo_dados);
 
                         if let Some((algorithmRash, blocksize_str)) = algorithm.split_once('-') {
-                            info!("AlgorithmRash: {}", algorithmRash);
-                            info!("blocksize: {}", blocksize_str);
+                            info!("AlgorithmRash:*{}*", algorithmRash);
+                            info!("blocksize:*{}*", blocksize_str);
                             match ParseSize(blocksize_str) {
                                 Ok(blocksize_recovered) => {
                                     match hash_rsha256(
@@ -573,14 +582,16 @@ pub fn read_and_parse_file(
                                         main_args.n_max_concur,
                                     ) {
                                         Ok(hash_calculado) => {
-                                            info!("Hash Calculated: {}", hash_calculado);
+                                            info!("Hash Calculated:*{}*", hash_calculado);
                                             if hash_calculado.to_lowercase().trim()
                                                 == hash_lido.to_lowercase().trim()
                                             {
                                                 info!("Hashes matched!");
+                                                n_acertos+=1;
                                             } else {
                                                 // Erro na checagem
                                                 eprintln!("Error. Does not match!");
+                                                n_errors+=1;
                                             }
                                         }
                                         Err(e) => {
@@ -595,16 +606,18 @@ pub fn read_and_parse_file(
                                 }
                             }
                         } else {
-                            match hash_sha256(&file_path, main_args.buffer_size as usize) {
+                            match hash_sha256(&file_path_completo_dados, main_args.buffer_size as usize) {
                                 Ok(hash_calculado) => {
-                                    info!("Hash Calculated: {}", hash_calculado);
+                                    info!("Hash Calculated:*{}*", hash_calculado);
                                     if hash_calculado.to_lowercase().trim()
                                         == hash_lido.to_lowercase().trim()
                                     {
                                         info!("Hashes matched!");
+                                        n_acertos+=1;
                                     } else {
                                         // Erro na checagem
                                         eprintln!("Error. Does not match!");
+                                        n_errors+=1;
                                     }
                                 }
                                 Err(e) => {
@@ -626,5 +639,14 @@ pub fn read_and_parse_file(
             }
         }
     }
+    
+    if n_errors > 0 {
+        eprintln!("{} errors found", n_errors);
+        process::exit(1);        
+    }
+    if n_linhas == n_acertos {
+        println!("Success! lines:{}/matches:{}",n_linhas, n_acertos);          
+    }
+    
     Ok(())
 }
