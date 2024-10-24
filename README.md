@@ -2,13 +2,15 @@
 
 `hush` is a hashing algorithm designed to be faster than usual.
 
-### ⚠️ If you know a fast way to hash big amount of files/data in ordinary computers, please, let me know!
+**If** you know a fast way to hash big amount of files/data in ordinary computers, please, let me know!
 
 ### How It Works
 
 To files smaller than block size, computes hashes in a single block.
 
 To big files, it divides into blocks, hashes each block, and then combines this hashes into a final hash, similar to how a blockchain works. (See picture.)
+
+![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
 
 ### Blocksize
 
@@ -18,13 +20,12 @@ where: **B = 1 Byte**
 
 All work is made in a multithread environment, to maximize speed.
 
-![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
-
-### ⚠️ Register the hash with algorithm and blocksize! ⚠️
+### ⚠️ Register the hash with algorithm and Blocksize! ⚠️
 
 The blocksize in verification process **NEEDS to be the same of generation** (of course!).
 
-This information is showed in the result of generation process. **SAVE ALL DATA**, like below:
+In hush, the information of algorithm used to hash Blocks and the blocksize is here: **hsha256-50MB**, like
+showed below. The lines with just sha256 are of files that hashed whole, without use of blocks.
 
 ```bash
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ?sha256*./sub1/sub2/Novo(a) Imagem de bitmap.bmp
