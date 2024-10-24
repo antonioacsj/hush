@@ -20,9 +20,11 @@ All work is made in a multithread environment, to maximize speed.
 
 ![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
 
-### ⚠️ Register the hash with algorithm and block!
+### ⚠️ Register the hash with algorithm and blocksize! ⚠️
 
-The block size in verification process **NEEDS to be the same of generation** (of course!). So, this information is showed in the result.
+The blocksize in verification process **NEEDS to be the same of generation** (of course!).
+
+This information is showed in the result of generation process. **SAVE ALL DATA**.
 
 ## Supported Algorithms to hash Blocks
 
@@ -43,14 +45,23 @@ hush gen <path_to_hash>  > hashes.txt
 #Checking hashes in 'hashes.txt' using a dir as base of work
 hush check hashes.txt <work_dir_base>
 
-# Generating hashes with options
-hush gen <path_to_hash> --log --n_workers 2 --n_max_concur 5
+#Simple use
+hush gen C:/Folder1/Data > C:/Folder1/hash_file.txt
+hush check C:/Folder1/hash_file.txt C:/Folder1/Data
+
+#Use with options:
+hush gen C:/Folder1/Data > C:/Folder1/hash_file.txt --progress --stop --log --blocksize 100MB --n_workers 40 --n_max_concur 20
+hush check C:/Folder1/hash_file.txt C:/Folder1/Data --progress --stop --log --n_workers 40 --n_max_concur 20
 
 ```
 
-### Parameters to play :)
+### Options to play :)
 
-- `blocksize`: Defines the size of the chunks the file will be split into for hashing.
-- `buffersize`: Defines the size of the buffer the file will be read into.
-- `n_workers`: Defines the amount of workers to use in main pool.
-- `n_max_concur`: Defines the amount of maximum concurrent access to each file.
+'--log' to print lots of boring stuff
+'--progress' to show that something is being done while you drink coffee.
+'--stop' Stop everything if some error. By default, don´t stop. (Make it in your way!)
+'--blocksize Value' to change size that file block is divided. Default 50MB. Use KB, MB, GB, TB, where B is Byte, ok? :)
+'--buffersize Value' to change buffersize to read buffers.. Default 10KB. Use KB, MB, GB, TB. Hands off if you don't know what it is.
+'--n_workers Value' to change how many workers will be used in main pool. Default 15.
+'--n_max_concur Value' to change how maximum number of concurrent access to each file, in pool of slaves. Default 15
+'--hash_alg Value' to change hash function to use. By default and supported: sha256
