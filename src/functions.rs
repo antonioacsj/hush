@@ -1,3 +1,4 @@
+use std::error::Error;
 use clap::{Arg, Command};
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
@@ -25,11 +26,11 @@ struct ChunkBloco {
 }
 
 pub struct Argumentos {
+    pub name: String,
     pub n_workers: u32,
     pub n_max_concur: u32,
     pub block_size_str: String,
-    pub buffer_size_str: String,
-    pub flag_stop_on_first_error:bool,
+    pub buffer_size_str: String,    
     pub block_size: u64,
     pub buffer_size: u32,
     pub log_enabled: bool,
@@ -38,15 +39,267 @@ pub struct Argumentos {
     pub in_file_filter: String,
     pub recursive_enabled: bool,
     pub out_file_path: String,
+    pub flag_show_progress:bool,
+    pub flag_stop_on_first_error: bool,
 }
 
-pub fn gera_caminho_completo(caminho_relativo_in: &str, caminho_pai_in: &str) -> PathBuf {
+pub struct TFileHash {
+    n_arquivo: u64,
+    path: String,
+    alg_hash: String,
+    valor_hash: String,
+}
+
+pub fn process_files(main_args: Argumentos, files: Vec<String>) {
+    let n_files_a_processar = files.len();
     info!(
+        "Running subcommand:{} over {} files, with: \n in_file_path: {}, workers: {}, max_concur: {}, block_size: {}, buffer_size: {}, recursive_enabled: {}, filter:{:?}, log_enabled:{}, out_file_path:{}, stop_on_first_error{}, show_progress{}",
+        main_args.sub_comando,
+        files.len(),
+        main_args.in_file_path,
+        main_args.n_workers,
+        main_args.n_max_concur,
+        main_args.block_size_str,
+        main_args.buffer_size_str,
+        main_args.recursive_enabled,
+        main_args.in_file_filter,
+        main_args.log_enabled,
+        main_args.out_file_path,
+        main_args.flag_stop_on_first_error,
+        main_args.flag_show_progress
+
+    );
+
+    let (sender_files, receiver_files): (Sender<String>, Receiver<String>) = unbounded();
+
+    let (sender_files_calculados, receiver_files_calculados): (
+        Sender<TFileHash>,
+        Receiver<TFileHash>,
+    ) = unbounded();
+
+    //Enviar todos arquivos para o canal que sera processado
+    for file in files {
+        //  println!("Enviado Bloco {} -> p/ calculo", bloco.n_bloco);
+        info!("=>{}", file);
+        sender_files.send(file).unwrap();
+        if main_args.flag_show_progress {
+            eprint!("+");
+        }
+    }
+
+    drop(sender_files);
+
+    // Criar threads para calcular o hash dos blocos usando BufReader
+    let mut handles = Vec::new();
+    for n_worker in 0..main_args.n_workers {
+        let receiver_files_clone = receiver_files.clone();
+        let sender_files_calculados_clone = sender_files_calculados.clone();
+
+        let handle = thread::spawn({
+            let block_size_str_clone = main_args.block_size_str.clone();
+            move || {
+                while let Ok(file_input) = receiver_files_clone.recv() {
+                    let arquivo_chegada = file_input.clone();
+                  
+
+                    info!("<= {}", arquivo_chegada);
+                    // Aqui envia pra calculo de hashe!
+
+                    let mut file_size = 0;
+
+                    match fs::metadata(arquivo_chegada.clone()) {
+                        Ok(metadata) => {
+                            file_size = metadata.len(); // Get the size in bytes
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to get file metadata: {}", e);
+                        }
+                    }
+
+                    if file_size > main_args.block_size {
+                        // ===> hsha
+
+                        let mut algor_hash_tmp_hsha256_type = String::from("hsha256");
+                        let mut algor_hash_tmp_hsha256 =
+                            format!("{}-{}", algor_hash_tmp_hsha256_type, block_size_str_clone);
+
+                        info!(
+                            "{} -> {}",
+                            arquivo_chegada.clone(),
+                            algor_hash_tmp_hsha256.clone()
+                        );
+
+                        match hash_hsha256(
+                            &arquivo_chegada.clone(),
+                            main_args.buffer_size as usize,
+                            main_args.block_size as usize,
+                            main_args.n_max_concur,
+                            main_args.flag_show_progress
+
+                        ) {
+                            Ok(hash_calculado) => {
+                                let fileCalculado = TFileHash {
+                                    n_arquivo: 0,
+                                    path: arquivo_chegada.clone(),
+                                    alg_hash: algor_hash_tmp_hsha256.clone(),
+                                    valor_hash: hash_calculado.clone(),
+                                };
+                                sender_files_calculados_clone.send(fileCalculado).unwrap();
+                                info!(
+                                    "{} {}?{} ",
+                                    arquivo_chegada.clone(),
+                                    algor_hash_tmp_hsha256.clone(),
+                                    hash_calculado.clone()
+                                )
+                        
+                            }
+                            Err(e) => {
+                                eprintln!("Error hsha256: {} with: {}", e, arquivo_chegada);
+                            }
+                        }
+                    } else {
+                        // ===> SHA256 normal
+
+                        let algor_hash_tmp_sha256 = String::from("sha256");
+                        info!(
+                            "{} -> {}",
+                            arquivo_chegada.clone(),
+                            algor_hash_tmp_sha256.clone()
+                        );
+
+                        match hash_sha256(
+                            &arquivo_chegada.clone(),
+                            main_args.buffer_size as usize,
+                        ) {
+                            Ok(hash_calculado) => {
+                                let fileCalculado = TFileHash {
+                                    n_arquivo: 0,
+                                    path: arquivo_chegada.clone(),
+                                    alg_hash: algor_hash_tmp_sha256.clone(),
+                                    valor_hash: hash_calculado.clone(),
+                                };
+                                sender_files_calculados_clone.send(fileCalculado).unwrap();
+
+                                //   println!("{0} ?{1}*{2}",filePronto.valor_hash,filePronto.alg_hash,filePronto.path);
+
+                                info!(
+                                    "{} ?{}*{} ",
+                                    arquivo_chegada.clone(),
+                                    algor_hash_tmp_sha256.clone(),
+                                    hash_calculado.clone()
+                                )
+                            }
+                            Err(e) => {
+                                eprintln!("Error sha256: {} with: {}", e, arquivo_chegada);
+                            }
+                        }
+                    }
+                    if main_args.flag_show_progress {
+                        eprint!("*");
+                    }
+                }
+            }
+        });
+        handles.push(handle);
+    }
+
+    // Canal Recebendo os hashes prontos
+    drop(sender_files_calculados); // Dropar após o término das threads
+
+    let mut resultados = Vec::new();
+    while let Ok(filePronto) = receiver_files_calculados.recv() {
+        //  println!("Recebido Bloco {} no resultado", bloco.n_bloco);
+        info!("+");
+        io::stdout().flush().expect("Failed to flush stdout");
+        match gera_caminho_relativo(&filePronto.path.clone(), &main_args.in_file_path.clone()) {
+            Some(caminho_relativo) => {
+                println!(
+                    "{0} ?{1}*{2}",
+                    filePronto.valor_hash,
+                    filePronto.alg_hash,
+                    caminho_relativo.display()
+                );
+            }
+            None => {
+                eprintln!(
+                    "Erro: {} não é um prefixo {}",
+                    filePronto.path, main_args.in_file_path
+                );
+            }
+        }
+        if(main_args.flag_show_progress){
+            eprint!("-");
+        }
+
+        resultados.push(filePronto);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+    /* */
+    //resultados.sort_by_key(|filePronto| filePronto.path);
+    let n_files_prontos = resultados.len();
+    /*
+    for filePronto in resultados {
+        println!("{0} {1}?{2}",filePronto.valor_hash,filePronto.alg_hash,filePronto.path);
+    }
+    */
+    eprintln!("Total files to process:{}", n_files_a_processar);
+    eprintln!("Total files hashed:{}", n_files_prontos);
+
+    if n_files_prontos == n_files_a_processar {
+        eprintln!("Sucess. Hashed all files: {}", n_files_a_processar);
+    } else {
+        eprintln!(
+            "Error. Not all files hashed! To hash:{} / Hashed:{}",
+            n_files_a_processar, n_files_prontos
+        );
+        process::exit(1);
+    }
+}
+
+pub fn search_files(pattern: &str) -> Result<Vec<String>, io::Error> {
+    let mut results = Vec::new();
+
+    // Verifica se o caminho é um arquivo
+    if Path::new(pattern).is_file() {
+        results.push(pattern.to_string().replace("\\", "/"));
+        return Ok(results); // Retorna já que é um arquivo, não precisa continuar
+    }
+
+    let mut glob_pattern = pattern.to_string();
+    if Path::new(pattern).is_dir() {
+        glob_pattern = format!("{}/**/*", pattern);
+    }
+
+    info!("Glob to use: {}", glob_pattern);
+    for entry in glob(&glob_pattern).expect("Failed to read glob pattern") {
+        match entry {
+            Ok(path) => {
+                if path.is_file() {
+                    if let Some(path_str) = path.to_str() {
+                        results.push(path_str.to_string().replace("\\", "/"));
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Erro ao processar o caminho: {}", e);
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, e));
+            }
+        }
+    }
+    Ok(results)
+}
+
+
+pub fn gera_caminho_completo(caminho_relativo_in: &str, caminho_pai_in: &str) -> PathBuf {
+/*     info!(
         "Caminho relativo chegada*{}*",
         caminho_relativo_in.to_string()
     );
     info!("Caminho Pai chegada*{}*", caminho_pai_in.to_string());
-
+ */
     let mut caminho_pai = caminho_pai_in
         .to_string()
         .replace("\\", "/")
@@ -57,11 +310,11 @@ pub fn gera_caminho_completo(caminho_relativo_in: &str, caminho_pai_in: &str) ->
         .replace("\\", "/")
         .trim()
         .to_string();
-    info!(
+  /*   info!(
         "Caminho relativo pos chegada*{}*",
         caminho_relativo.to_string()
     );
-    info!("Caminho Pai pos chegada*{}*", caminho_pai.to_string());
+    info!("Caminho Pai pos chegada*{}*", caminho_pai.to_string()); */
 
     // Verificar se caminhoPai termina com "/" e adicionar se necessário
     if !caminho_pai.trim_end().ends_with('/') {
@@ -91,7 +344,7 @@ pub fn gera_caminho_relativo(caminho1: &str, caminho_pai: &str) -> Option<PathBu
         Err(_) => None, // Retorna None se o caminhoPai não for prefixo de caminho1
     }
 }
-pub fn ParseSize(size_str: &str) -> Result<u64, &'static str> {
+pub fn ParseSize(size_str: &str) ->Result<u64, Box<dyn Error>> {
     // Remove any whitespace and convert the string to uppercase
     let size_str = size_str.trim().to_uppercase();
 
@@ -117,7 +370,10 @@ pub fn ParseSize(size_str: &str) -> Result<u64, &'static str> {
         "MB" => Ok(number * 1_024 * 1_024),
         "GB" => Ok(number * 1_024 * 1_024 * 1_024),
         "TB" => Ok(number * 1_024 * 1_024 * 1_024 * 1_024),
-        _ => Err("Unknown unit"),
+        _ => Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Unknown unit: {}", unit_part),
+        ))),
     }
 }
 
@@ -126,6 +382,7 @@ pub fn hash_hush(
     alg_str: &str, // Algoritmo com ou sem bloco!
     buffer_size: usize,    
     n_max_concur: u32,
+    flag_show_progress: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!(
         "hash_hush: alg:{} file: {} BufferSize:{} ",
@@ -136,14 +393,15 @@ pub fn hash_hush(
     if let Some((algorithmRash, blocksize_str)) = alg_str.split_once('-') {        
         match ParseSize(blocksize_str) {
             Ok(blocksize_recovered) => {
-                return hash_rsha256(
+                return hash_hsha256(
                     file_path,
                     buffer_size,
                     blocksize_recovered as usize,
-                    n_max_concur
+                    n_max_concur,
+                    flag_show_progress
                 ); 
             }
-            Err(e) => return Err(Box::new(e)),
+            Err(e) => return Err(e),
         }
     } else{
         return hash_sha256(file_path, buffer_size);
@@ -151,13 +409,14 @@ pub fn hash_hush(
 
 }
 
-pub fn hash_rsha256(
+pub fn hash_hsha256(
     file_path: &str,
     buffer_size: usize,
     chunk_size: usize,
     n_max_concur: u32,
+    flag_show_progress:bool
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let hash_alg = "RSHA256".to_string();
+    let hash_alg = "hsha256".to_string();
 
     info!(
         "alg:{} file: {} BlokSize:{} BufferSize:{} ",
@@ -177,6 +436,9 @@ pub fn hash_rsha256(
         info!("+");
         io::stdout().flush().expect("Failed to flush stdout");
         sender_calculo.send(bloco).unwrap();
+        if flag_show_progress {
+            eprint!(">");
+        }
     }
     drop(sender_calculo); // Dropar após envio
 
@@ -201,6 +463,7 @@ pub fn hash_rsha256(
                 //println!("Recebido Bloco {} para cálculo de hash", n_bloco);
                 //calcular_hash_bloco(&mut reader, &mut bloco).unwrap(); // Passar o BufReader para calcular o hash
                 match calcular_hash_bloco(&mut reader, bloco, buffer_size, chunk_size) {
+                    
                     Ok(bloco_recebido) => {
                         info!("*");
                         io::stdout().flush().expect("Failed to flush stdout");
@@ -214,6 +477,9 @@ pub fn hash_rsha256(
                         );
                         process::exit(1);
                     }
+                }
+                if flag_show_progress {
+                    eprint!("<");
                 }
             }
         });
@@ -358,7 +624,7 @@ pub fn split(
     if !path_dir.exists() {
         // Cria o diretório, incluindo diretórios intermediários, se necessário
         fs::create_dir_all(path_dir)?;
-        println!("Dir created: {}", dir_destino);
+        info!("Dir created: {}", dir_destino);
     }
 
     // Nomeando o primeiro arquivo de saída
@@ -632,14 +898,14 @@ pub fn check_hash(
                     continue;
                 }
 
-                let (algorithm, file_path_relativo) = split_result2.unwrap();
-                 
+                 let (algorithm, file_path_relativo) = split_result2.unwrap();
+                 /* 
                 info!("Algorithm:*{}*", algorithm);
-                info!("File Relative Path:*{}*", file_path_relativo);
+                info!("File Relative Path:*{}*", file_path_relativo); */
                 let file_path_completo =
                     gera_caminho_completo(file_path_relativo, work_dir);
                 let file_path_completo_dados = file_path_completo.to_str().unwrap();
-                info!("File Path Completo:*{}*", file_path_completo_dados);
+             /*    info!("File Path Completo:*{}*", file_path_completo_dados); */
                 /* Testa se arquivo existe! */
                 if ! Path::new(file_path_completo_dados).is_file() {                                                        
                     n_errors+=1;
@@ -660,9 +926,11 @@ pub fn check_hash(
                     algorithm,
                     main_args.buffer_size as usize,
                     main_args.n_max_concur,
+                    main_args.flag_show_progress,
+
                 ) {
                     Ok(hash_calculado) => {
-                        info!("Hash Calculated:*{}*", hash_calculado);
+                        /* info!("Hash Calculated:*{}*", hash_calculado); */
                         let hash_calc=hash_calculado.to_lowercase().trim().to_string();
                         let hash_to_check = hash_lido.to_lowercase().trim().to_string();
                         if hash_to_check== hash_calc {
@@ -705,7 +973,7 @@ pub fn check_hash(
                 // Handle the error if reading the line fails
                 n_linhas+=1;        
                 n_errors+=1;        
-                let error_msg = format!(         "Error {}! Line:{} File:{} => {}",
+                let error_msg = format!("Error {}! Line:{} File:{} => {}",
                      n_errors, n_linhas,file_path, e );
                 if main_args.flag_stop_on_first_error {
                     eprintln!("{}",error_msg);
@@ -718,12 +986,16 @@ pub fn check_hash(
     
     
     if n_linhas == n_acertos {
-        println!("Success! Total lines:{} matches! No errors.",n_linhas);          
+        let sucess_msg = format!("Success! Total lines:{} matches! No errors.",n_linhas);
+        info!("{}",sucess_msg);          
+        println!("{}",sucess_msg);          
     } else{
-        println!("Results: Total lines:{}, matches:{}, errors:{}. ",n_linhas, n_acertos, n_errors);          
+        let sucess_msg = format!("Results: Total lines:{}, matches:{}, errors:{}. ",n_linhas, n_acertos, n_errors);          
+        info!("{}",sucess_msg);          
+        println!("{}",sucess_msg);                  
         if n_errors > 0 {
-            eprintln!("{} errors found", n_errors);            
-        }
+            error!("{} errors found", n_errors);                
+        }        
         process::exit(1);        
     }        
     
@@ -806,7 +1078,7 @@ pub fn check_hash_orignial(
                             info!("blocksize:*{}*", blocksize_str);
                             match ParseSize(blocksize_str) {
                                 Ok(blocksize_recovered) => {
-                                    match hash_rsha256(
+                                    match hash_hsha256(
                                         file_path_completo_dados,
                                         main_args.buffer_size as usize,
                                         blocksize_recovered as usize,
@@ -836,7 +1108,7 @@ pub fn check_hash_orignial(
                                             }
                                         }
                                         Err(e) => {
-                                            eprintln!("rsha256 error: {}. Line:{}", e,n_linhas);
+                                            eprintln!("hsha256 error: {}. Line:{}", e,n_linhas);
                                               let error_msg = format!(
                                                     "Error {}! Line:{} File:{} Algorithm:{} HashRead:{} HashCalculated:{}: Hash doesnt match!",
                                                      n_errors, n_linhas,file_path_completo_dados, algorithm,hash_to_check,hash_calc                                                      
@@ -849,7 +1121,7 @@ pub fn check_hash_orignial(
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("rsha256 error: {}. Line:{}", e,n_linhas);
+                                    eprintln!("hsha256 error: {}. Line:{}", e,n_linhas);
                                     if main_args.flag_stop_on_first_error {
                                         eprintln!("{}",error_msg);
                                         process::exit(1);                            

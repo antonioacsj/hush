@@ -1,17 +1,22 @@
-# hush - Hash tool for Rush situations
+# hush - Hash tool for rush situations
 
-`hush` is a hashing algorithm designed to handle increasingly larger files by utilizing parallel/concurrent computation and make the work faster.
-
-To files smaller than block size, computes hashes in a single block.
-To big files, it divides into blocks, hashes them, and then combines the block hashes into a final hash, similar to how a blockchain works. (See picture.)
-The work is made in a multithread/multiworker environment, to try maximize speed to generate or verify integrity of
-big volume of data.
+`hush` is a hashing algorithm designed to be faster than usual.
 
 ### ⚠️ If you know a fast way to hash big amount of files/data in ordinary computers, please, let me know!
 
 ### How It Works
 
-hush uses multi-threaded processing to hash file blocks, improving speed on large files. After hashing each block, it generates a final hash by combining the hashes of all blocks in sequence.
+To files smaller than block size, computes hashes in a single block.
+
+To big files, it divides into blocks, hashes each block, and then combines this hashes into a final hash, similar to how a blockchain works. (See picture.)
+
+### Blocksize
+
+The blocksize is whats differs hush of traditional hash algorithms.
+Valid values: 15KB 10MB, 1GB, etc.
+where: **B = 1 Byte**
+
+All work is made in a multithread environment, to maximize speed.
 
 ![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
 
@@ -23,23 +28,6 @@ The block size in verification process **NEEDS to be the same of generation** (o
 
 - **rsha256-Blocksize** (default) - Hash file in blocks with sha256 of size: Bloksize
 - **others** (planned support) - Hash the blocks with others hash algorithms
-
-### Blocksize
-
-The blocksize is whats differs hush of traditional hash algorithms.
-Valid values: 15KB 10MB, 1GB, etc.
-
-where: **B = 1 Byte**
-
-```rust
-//Rust implementation
-        "B" => Ok(number),
-        "KB" => Ok(number * 1_024),
-        "MB" => Ok(number * 1_024 * 1_024),
-        "GB" => Ok(number * 1_024 * 1_024 * 1_024),
-        "TB" => Ok(number * 1_024 * 1_024 * 1_024 * 1_024),
-
-```
 
 ### Example Usage
 
