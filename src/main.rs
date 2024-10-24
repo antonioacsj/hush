@@ -25,64 +25,64 @@ pub static LOG_ENABLED: OnceCell<bool> = OnceCell::new();
 fn print_usage(main_args: functions::Argumentos) {
     eprintln!("{} - hash tool for rush situations", main_args.name);
     eprintln!("\nusage: {} <command> <path> <options>?", main_args.name);
-    eprintln!("\nCommands:\n\t 'gen': generate hashes from path. If a folder, its recursive. Glob match pattern can be used.\n\t 'check': check hashes from a file using a work_dir as base\n");
+    eprintln!("\nCommands:\n    'gen': generate hashes from path. If a folder, its recursive. Glob match pattern can be used.\n    'check': check hashes from a file using a work_dir as base\n");
 
     eprintln!(
-        "Simple use:\n\t'{} gen <input_path> <options>'",
+        "Simple use:\n   '{} gen <input_path> <options>'",
         main_args.name
     );
     eprintln!(
-        "\t'{} check <file_hashes_path> <work_dir_base> <options>'",
+        "   '{} check <file_hashes_path> <work_dir_base> <options>'",
         main_args.name
     );
     eprintln!("\nOptions");
 
-    eprintln!("\t'--log' to print lots of boring stuff");
-    eprintln!("\t'--progress' to show that something is being done while you drink coffee.");
+    eprintln!("   '--log' to print lots of boring stuff");
+    eprintln!("   '--progress' to show that something is being done while you drink coffee.");
     eprintln!(
-        "\t'--stop' Stop everything if some error. By default, don´t stop. (Make it in your way!) "
+        "   '--stop' Stop everything if some error. By default, don´t stop. (Make it in your way!) "
     );
     eprintln!(
-        "\t'--blocksize Value' to change size that file block is divided. Default {}. Use KB, MB, GB, TB, where B is Byte, ok? :)",
+        "   '--blocksize Value' to change size that file block is divided. Default {}. Use KB, MB, GB, TB, where B is Byte, ok? :)",
         main_args.block_size_str
     );
     eprintln!(
-        "\t'--buffersize Value' to change buffersize to read buffers.. Default {}. Use KB, MB, GB, TB. Hands off if you don't know what it is. ",
+        "   '--buffersize Value' to change buffersize to read buffers.. Default {}. Use KB, MB, GB, TB. Hands off if you don't know what it is. ",
         main_args.buffer_size_str
     );
     eprintln!(
-        "\t'--n_workers Value' to change how many workers will be used in main pool. Default {}. ",
+        "   '--n_workers Value' to change how many workers will be used in main pool. Default {}. ",
         main_args.n_workers
     );
-    eprintln!("\t'--n_max_concur Value' to change how maximum number of concurrent access to each file, in pool of slaves. Default {}",  main_args.n_max_concur
+    eprintln!("   '--n_max_concur Value' to change how maximum number of concurrent access to each file, in pool of slaves. Default {}",  main_args.n_max_concur
     );
     eprintln!(
-        "\t'--hash_alg Value' to change hash function to use. By default and supported: sha256 "
+        "   '--hash_alg Value' to change hash function to use. By default and supported: sha256 "
     );
     eprintln!(
         "\n**IMPORTANT**. In check, the blocksize information necessary to check data. !! SAVE ALL DATA GENERATED !!"
     );
     eprintln!(
-        "\nEx: \n\t'{} gen C:/Folder1/Data > C:/Folder1/hash_file.txt'",
+        "\nEx: \n   '{} gen C:/Folder1/Data > C:/Folder1/hash_file.txt'",
         main_args.name
     );
     eprintln!(
-        "\t'{} check C:/Folder1/hash_file.txt C:/Folder1/Data'",
+        "   '{} check C:/Folder1/hash_file.txt C:/Folder1/Data'",
         main_args.name
     );
     eprintln!(
-        "\nEx with options:\n\t'{} gen C:/Folder1/Data > C:/Folder1/hash_file.txt --progress --stop --log --blocksize 100MB --n_workers 40 --n_max_concur 20'",
+        "\nEx with options:\n   '{} gen C:/Folder1/Data > C:/Folder1/hash_file.txt --progress --stop --log --blocksize 100MB --n_workers 40 --n_max_concur 20'",
         main_args.name
     );
     eprintln!(
-        "\t'{} check C:/Folder1/hash_file.txt C:/Folder1/Data --progress --stop --log --n_workers 40 --n_max_concur 20'",
+        "   '{} check C:/Folder1/hash_file.txt C:/Folder1/Data --progress --stop --log --n_workers 40 --n_max_concur 20'",
         main_args.name
     );
     eprintln!(
         "\n**IMPORTANT**. In check, the blocksize information necessary to check data. Save all data generated!"
     );
 
-    eprintln!("\n\n\tMore details in: https://github.com/antonioacsj/hush");
+    eprintln!("\n\n   More details in: https://github.com/antonioacsj/hush");
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

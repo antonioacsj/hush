@@ -222,8 +222,8 @@ pub fn process_files(main_args: Argumentos, files: Vec<String>) {
             }
             None => {
                 eprintln!(
-                    "Erro: {} não é um prefixo {}",
-                    filePronto.path, main_args.in_file_path
+                    "Erro: Pai: {} não é um prefixo de Filho: {}",
+                     main_args.in_file_path, filePronto.path,
                 );
             }
         }
@@ -336,6 +336,26 @@ pub fn gera_caminho_relativo(caminho1: &str, caminho_pai: &str) -> Option<PathBu
     let caminho_pai = Path::new(caminho_pai);
 
     // Tentar remover o prefixo (caminho pai)
+    /*
+    let caminhoPai_tmp=Path::new(caminho_pai);
+    caminhoPai_tmp.strip_prefix('./')
+    if !caminho_pai.trim_end().ends_with('/') {
+        caminho_pai.push('/');
+    }
+    */
+    println!("A merda ta por aqui!");
+    /*
+    Erro: AudioRussiancaso/iped/index/_3.si não é um prefixo ./AudioRussiancaso
+Erro: AudioRussiancaso/iped/index/write.lock não é um prefixo ./AudioRussiancaso
+Erro: AudioRussiancaso/iped/index/segments_1 não é um prefixo ./AudioRussiancaso
+Erro: AudioRussiancaso/iped/index/_1.cfs não é um prefixo ./AudioRussiancaso
+Erro: AudioRussiancaso/iped/jre/LICENSE não é um prefixo ./AudioRussiancaso
+
+executando:
+hush gen ./AudioRussiancaso
+    
+     */
+
     match caminho1.strip_prefix(caminho_pai) {
         Ok(caminho_relativo) => {
             // Retornar o caminho relativo com "./" na frente
