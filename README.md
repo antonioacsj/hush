@@ -15,7 +15,7 @@ Rush uses multi-threaded processing to hash file blocks, improving speed on larg
 
 ![alt text](https://github.com/antonioacsj/rash/blob/master/etc/Blocks.jpg?raw=true)
 
-### ⚠️ Important Note: When save the hash, save the blocksize information too.
+### ⚠️ Important Note: When save the hash, save the information of algorithm and blocksize used !.
 
 The block size in verification process **NEEDS to be the same of generation** (of course!). So, this information is showed in the result. Register the hash with algorithm and block!
 
