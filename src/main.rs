@@ -5,13 +5,12 @@ use functions::{gera_caminho_relativo, hash_hsha256, hash_sha256};
 use glob::glob;
 use log::{debug, info, warn, LevelFilter};
 
-use once_cell::sync::OnceCell;
-
 use crate::functions::{process_files, search_files, Argumentos, ParseSize};
+use once_cell::sync::OnceCell;
 use std::env;
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader, Read, Seek, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::result::Result;
 use std::thread;
@@ -85,6 +84,48 @@ fn print_usage(main_args: functions::Argumentos) {
     eprintln!("\n\n   More details in: https://github.com/antonioacsj/hush");
 }
 
+fn resolve_path_canonico(caminho_pai: &str) -> String {
+    let path = Path::new(caminho_pai);
+
+    let resolved_path = if caminho_pai.starts_with("./") || caminho_pai == "." {
+        // Se começar com "." ou "./", resolve o caminho completo
+        env::current_dir()
+            .unwrap()
+            .join(path.strip_prefix("./").unwrap_or(path))
+    } else {
+        // Se não, retorna o caminho original como PathBuf
+        path.to_path_buf()
+    };
+
+    // Aplica canonicalize e substitui barras
+    let canonicalized_path = resolved_path.canonicalize().unwrap_or(resolved_path);
+    canonicalized_path.to_str().unwrap_or("").replace("\\", "/") // Retorna a string corrigida
+}
+
+fn resolve_path(caminho_pai: &str) -> PathBuf {
+    let path = Path::new(caminho_pai);
+
+    if caminho_pai.starts_with("./") || caminho_pai == "." {
+        // Se começar com "." ou "./", resolve o caminho completo
+        /*let saida = env::current_dir()
+            .unwrap()
+            .join(path.strip_prefix("./").unwrap_or(path));
+        saida.canonicalize().unwrap_or(saida)
+
+        full_path.to_str().unwrap().replace("\\", "/").to_string()
+        */
+        env::current_dir()
+            .unwrap()
+            .join(path.strip_prefix("./").unwrap_or(path))
+    } else {
+        // Se não, retorna o caminho original como PathBuf
+        /*let saida = path.to_path_buf();
+        saida.canonicalize().unwrap_or(saida)
+        */
+        path.to_path_buf()
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Coletando os argumentos da linha de comando
     let start = Instant::now();
@@ -102,10 +143,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         flag_stop_on_first_error: false,
         log_enabled: false,
         sub_comando: String::new(),
-        in_file_path: String::new(),
+        in_file_path: PathBuf::new(),
         in_file_filter: String::new(),
         recursive_enabled: false,
-        out_file_path: String::new(),
+        out_file_path: PathBuf::new(),
     };
 
     // Pega
@@ -198,9 +239,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let comando = &args[1];
     let file_path = &args[2];
 
-    main_args.in_file_path = file_path.to_string();
+    let in_file_resovido = resolve_path(file_path);
 
-    // Executando a função correspondente com base no comando fornecido
+    main_args.in_file_path = in_file_resovido.canonicalize()?; // Obtém o caminho absoluto
     main_args.sub_comando = comando.to_string();
     info!("Comando {}", comando);
     match comando.as_str() {
@@ -273,7 +314,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "gen" => {
             if args.len() < 3 {
                 eprintln!("Use: {} gen <file_path> ", args[0]);
-                eprintln!("<file_path>: file_path to gen(glob pattern!).");
+                eprintln!("<file_path>: file_path to gen (file_path can be aglob pattern!).");
                 process::exit(1);
             }
             debug!("search_files: {} ", file_path);
@@ -292,6 +333,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut work_dir = ".";
             if args.len() > 3 {
                 work_dir = &args[3];
+            }
+            if work_dir.starts_with("--") {
+                eprintln!("<dir_work> not informed.  set work dir where files are.");
             }
 
             if let Err(e) = functions::check_hash(main_args, file_path, work_dir) {

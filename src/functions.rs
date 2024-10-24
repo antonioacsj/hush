@@ -35,10 +35,10 @@ pub struct Argumentos {
     pub buffer_size: u32,
     pub log_enabled: bool,
     pub sub_comando: String,
-    pub in_file_path: String,
+    pub in_file_path: PathBuf,
     pub in_file_filter: String,
     pub recursive_enabled: bool,
-    pub out_file_path: String,
+    pub out_file_path: PathBuf,
     pub flag_show_progress:bool,
     pub flag_stop_on_first_error: bool,
 }
@@ -56,7 +56,7 @@ pub fn process_files(main_args: Argumentos, files: Vec<String>) {
         "Running subcommand:{} over {} files, with: \n in_file_path: {}, workers: {}, max_concur: {}, block_size: {}, buffer_size: {}, recursive_enabled: {}, filter:{:?}, log_enabled:{}, out_file_path:{}, stop_on_first_error{}, show_progress{}",
         main_args.sub_comando,
         files.len(),
-        main_args.in_file_path,
+        main_args.in_file_path.display(),
         main_args.n_workers,
         main_args.n_max_concur,
         main_args.block_size_str,
@@ -64,12 +64,13 @@ pub fn process_files(main_args: Argumentos, files: Vec<String>) {
         main_args.recursive_enabled,
         main_args.in_file_filter,
         main_args.log_enabled,
-        main_args.out_file_path,
+        main_args.out_file_path.display(),
         main_args.flag_stop_on_first_error,
         main_args.flag_show_progress
 
     );
-
+    let caminho_pai_full=main_args.in_file_path.to_str().unwrap().replace("\\", "/").to_string();    
+     
     let (sender_files, receiver_files): (Sender<String>, Receiver<String>) = unbounded();
 
     let (sender_files_calculados, receiver_files_calculados): (
@@ -211,7 +212,7 @@ pub fn process_files(main_args: Argumentos, files: Vec<String>) {
         //  println!("Recebido Bloco {} no resultado", bloco.n_bloco);
         info!("+");
         io::stdout().flush().expect("Failed to flush stdout");
-        match gera_caminho_relativo(&filePronto.path.clone(), &main_args.in_file_path.clone()) {
+        match gera_caminho_relativo(&filePronto.path.clone(), &caminho_pai_full.clone()) {
             Some(caminho_relativo) => {
                 println!(
                     "{0} ?{1}*{2}",
@@ -223,7 +224,7 @@ pub fn process_files(main_args: Argumentos, files: Vec<String>) {
             None => {
                 eprintln!(
                     "Erro: Pai: {} não é um prefixo de Filho: {}",
-                     main_args.in_file_path, filePronto.path,
+                    caminho_pai_full, filePronto.path,
                 );
             }
         }
@@ -264,13 +265,20 @@ pub fn search_files(pattern: &str) -> Result<Vec<String>, io::Error> {
 
     // Verifica se o caminho é um arquivo
     if Path::new(pattern).is_file() {
+        info!("pattern {} is a file", pattern);
+        /*
         results.push(pattern.to_string().replace("\\", "/"));
+        return Ok(results); // Retorna já que é um arquivo, não precisa continuar
+        */
+        let full_path = Path::new(pattern).canonicalize()?; // Obtém o caminho absoluto
+        results.push(full_path.to_str().unwrap().replace("\\", "/").to_string());
         return Ok(results); // Retorna já que é um arquivo, não precisa continuar
     }
 
     let mut glob_pattern = pattern.to_string();
     if Path::new(pattern).is_dir() {
-        glob_pattern = format!("{}/**/*", pattern);
+        info!("pattern {} is a directory", pattern);
+        glob_pattern = format!("{}/**/*", pattern);        
     }
 
     info!("Glob to use: {}", glob_pattern);
@@ -279,7 +287,14 @@ pub fn search_files(pattern: &str) -> Result<Vec<String>, io::Error> {
             Ok(path) => {
                 if path.is_file() {
                     if let Some(path_str) = path.to_str() {
-                        results.push(path_str.to_string().replace("\\", "/"));
+                        eprintln!("Arquivo Encontrado: {}", path_str);
+                        let full_path = Path::new(path_str).canonicalize()?; // Obtém o caminho absoluto
+                        eprintln!("Canonizado: {}", full_path.display());
+                        let arquivo_full=full_path.to_str().unwrap().replace("\\", "/").to_string();
+                        eprintln!("Arquivo Full: {}", arquivo_full);
+                        results.push(arquivo_full);
+
+                      //  results.push(path_str.to_string().replace("\\", "/"));
                     }
                 }
             }
@@ -327,15 +342,23 @@ pub fn gera_caminho_completo(caminho_relativo_in: &str, caminho_pai_in: &str) ->
         caminho_relativo = format!("./{}", caminho_relativo);
     }
     */
-
+    /**
+    if caminho_pai.starts_with('./') {
+        Path::new(&caminho_relativo)
+    }else{
+        */
     // Combinar os caminhos usando PathBuf
     Path::new(&caminho_pai).join(Path::new(&caminho_relativo))
 }
-pub fn gera_caminho_relativo(caminho1: &str, caminho_pai: &str) -> Option<PathBuf> {
-    let caminho1 = Path::new(caminho1);
-    let caminho_pai = Path::new(caminho_pai);
-
+pub fn gera_caminho_relativo(caminho_filho: &str, caminho_pai: &str) -> Option<PathBuf> {
+    
+    let caminho_filho_pb = PathBuf::from(caminho_filho);
+    let caminho_pai_pb = PathBuf::from(caminho_pai);
+    
+    
+   // eprintln!("gera_caminho_relativo => caminho1: {} caminho_pai: {}", caminho_filho_pb.display(), caminho_pai_pb.display());
     // Tentar remover o prefixo (caminho pai)
+    
     /*
     let caminhoPai_tmp=Path::new(caminho_pai);
     caminhoPai_tmp.strip_prefix('./')
@@ -343,7 +366,8 @@ pub fn gera_caminho_relativo(caminho1: &str, caminho_pai: &str) -> Option<PathBu
         caminho_pai.push('/');
     }
     */
-    println!("A merda ta por aqui!");
+    
+    
     /*
     Erro: AudioRussiancaso/iped/index/_3.si não é um prefixo ./AudioRussiancaso
 Erro: AudioRussiancaso/iped/index/write.lock não é um prefixo ./AudioRussiancaso
@@ -356,10 +380,12 @@ hush gen ./AudioRussiancaso
     
      */
 
-    match caminho1.strip_prefix(caminho_pai) {
+    match caminho_filho_pb.strip_prefix(caminho_pai_pb) {
         Ok(caminho_relativo) => {
             // Retornar o caminho relativo com "./" na frente
-            Some(PathBuf::from("./").join(caminho_relativo))
+            let caminho_pronto = PathBuf::from("./").join(caminho_relativo);
+           // eprintln!("gera_caminho_relativo => caminho_pronto: {}", caminho_pronto.display());
+            Some(caminho_pronto)
         }
         Err(_) => None, // Retorna None se o caminhoPai não for prefixo de caminho1
     }
@@ -848,7 +874,7 @@ pub fn check_hash(
     info!(
         "Running subcommand:{} , with: \n in_file_path: {}, work_dir: {}, workers: {}, max_concur: {}, block_size: {}, buffer_size: {}, recursive_enabled: {}, filter:{:?}, log_enabled:{}, out_file_path:{}, stop_on_first_err:{}",
         main_args.sub_comando,        
-        main_args.in_file_path,
+        main_args.in_file_path.display(),
         work_dir,        
         main_args.n_workers,
         main_args.n_max_concur,
@@ -857,7 +883,7 @@ pub fn check_hash(
         main_args.recursive_enabled,
         main_args.in_file_filter,
         main_args.log_enabled,
-        main_args.out_file_path,
+        main_args.out_file_path.display(),
         main_args.flag_stop_on_first_error
         
     );
