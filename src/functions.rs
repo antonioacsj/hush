@@ -2,7 +2,7 @@ use clap::{Arg, Command};
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use glob::glob;
-use log::{info, warn, LevelFilter};
+use log::{error, warn, info, debug, trace, LevelFilter};
 use num_cpus;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
@@ -29,6 +29,7 @@ pub struct Argumentos {
     pub n_max_concur: u32,
     pub block_size_str: String,
     pub buffer_size_str: String,
+    pub flag_stop_on_first_error:bool,
     pub block_size: u64,
     pub buffer_size: u32,
     pub log_enabled: bool,
@@ -120,6 +121,36 @@ pub fn ParseSize(size_str: &str) -> Result<u64, &'static str> {
     }
 }
 
+pub fn hash_hush(
+    file_path: &str,
+    alg_str: &str, // Algoritmo com ou sem bloco!
+    buffer_size: usize,    
+    n_max_concur: u32,
+) -> Result<String, Box<dyn std::error::Error>> {
+    info!(
+        "hash_hush: alg:{} file: {} BufferSize:{} ",
+        alg_str, file_path, buffer_size
+    );
+
+    // Se tem - no algoritmo, é pq é hush
+    if let Some((algorithmRash, blocksize_str)) = alg_str.split_once('-') {        
+        match ParseSize(blocksize_str) {
+            Ok(blocksize_recovered) => {
+                return hash_rsha256(
+                    file_path,
+                    buffer_size,
+                    blocksize_recovered as usize,
+                    n_max_concur
+                ); 
+            }
+            Err(e) => return Err(Box::new(e)),
+        }
+    } else{
+        return hash_sha256(file_path, buffer_size);
+    }
+
+}
+
 pub fn hash_rsha256(
     file_path: &str,
     buffer_size: usize,
@@ -178,7 +209,7 @@ pub fn hash_rsha256(
                     }
                     Err(e) => {
                         eprintln!(
-                            "Error Rush Block: {}: {:?} File:{} ",
+                            "Error hush Block: {}: {:?} File:{} ",
                             n_bloco, e, file_path_clone
                         );
                         process::exit(1);
@@ -216,17 +247,19 @@ pub fn hash_rsha256(
         let bloco = &resultados[0];
         hash_final = bloco.hash_bloco.clone();
     } else {
-        let mut hasher_cumulativo = Sha256::new();
-        info!("Block;bytes_start;byte_end;hash");
+        let mut hasher_cumulativo = Sha256::new();        
+        info!("File;Block;bytes_start;byte_end;hash");
         for bloco in resultados {
             info!(
-                "{0:10};{1:10};{2:10};{3}",
+                "{0}{1:10};{2:10};{3:10};{4}",
+                file_path,
                 bloco.n_bloco, bloco.inicio_bloco, bloco.fim_bloco, bloco.hash_bloco
             );
             hasher_cumulativo.update(bloco.hash_bloco.as_bytes());
         }
         let hash_cumulativo_result = hasher_cumulativo.finalize();
         hash_final = format!("{:x}", hash_cumulativo_result);
+        info!("File:{} => Hush:{}",file_path,hash_final);
     }
 
     Ok(hash_final)
@@ -519,14 +552,15 @@ fn parse_line(line: &str) -> Option<(String, String, String, String)> {
     }
 }
 
-pub fn read_and_parse_file(
+
+pub fn check_hash(
     main_args: Argumentos,
     file_path: &str,
     work_dir: &str,
 ) -> io::Result<()> {
 
     info!(
-        "Running subcommand:{} , with: \n in_file_path: {}, work_dir: {}, workers: {}, max_concur: {}, block_size: {}, buffer_size: {}, recursive_enabled: {}, filter:{:?}, log_enabled:{}, out_file_path:{}",
+        "Running subcommand:{} , with: \n in_file_path: {}, work_dir: {}, workers: {}, max_concur: {}, block_size: {}, buffer_size: {}, recursive_enabled: {}, filter:{:?}, log_enabled:{}, out_file_path:{}, stop_on_first_err:{}",
         main_args.sub_comando,        
         main_args.in_file_path,
         work_dir,        
@@ -537,7 +571,8 @@ pub fn read_and_parse_file(
         main_args.recursive_enabled,
         main_args.in_file_filter,
         main_args.log_enabled,
-        main_args.out_file_path
+        main_args.out_file_path,
+        main_args.flag_stop_on_first_error
         
     );
     let mut n_errors=0;
@@ -547,6 +582,186 @@ pub fn read_and_parse_file(
     let path = Path::new(file_path);
     let file = File::open(&path)?;
     let reader = BufReader::new(file);
+
+    let mut error_results = Vec::new();
+
+    // Read the file line by line
+    for line_result in reader.lines() {
+        match line_result {
+            Ok(line) => {
+                // Parse each line
+                n_linhas+=1;
+                let split_result = line.split_once('?');
+                if split_result.is_none() { // Erro lendo ?
+                    n_errors+=1;
+                    let error_msg = format!(
+                        "Error {}! Line:{} File:{} mot contain '?' char.",
+                         n_errors, n_linhas, file_path
+                    );
+                    error_results.push(error_msg.clone());
+                    error!("{}",error_msg);
+                    if main_args.flag_stop_on_first_error {
+                        eprintln!("{}",error_msg);
+                        process::exit(1);                            
+                    }                            
+                    continue;
+                }
+                let (hash_lido_tmp, rest) = split_result.unwrap();
+                
+                    // Split the remaining part by `*` to separate algorithm and path
+                info!("Hash Lido raw:*{}*", hash_lido_tmp);
+                
+                let mut hash_lido = hash_lido_tmp.to_string();
+                let mut hash_lido2 = hash_lido.trim().to_string();
+                
+                info!("Hash Lido Trimmed:*{}*", hash_lido2.trim());
+                
+                let split_result2 = line.split_once('*');
+                if split_result2.is_none() { // Erro lendo ?
+                    n_errors+=1;
+                    let error_msg = format!(
+                        "Error {}! Line:{} File:{} mot contain '*' char.",
+                         n_errors, n_linhas, file_path
+                    );
+                    error_results.push(error_msg.clone());
+                    error!("{}",error_msg);
+                    if main_args.flag_stop_on_first_error {
+                        eprintln!("{}",error_msg);
+                        process::exit(1);                            
+                    }                            
+                    continue;
+                }
+
+                let (algorithm, file_path_relativo) = split_result2.unwrap();
+                 
+                info!("Algorithm:*{}*", algorithm);
+                info!("File Relative Path:*{}*", file_path_relativo);
+                let file_path_completo =
+                    gera_caminho_completo(file_path_relativo, work_dir);
+                let file_path_completo_dados = file_path_completo.to_str().unwrap();
+                info!("File Path Completo:*{}*", file_path_completo_dados);
+                /* Testa se arquivo existe! */
+                if ! Path::new(file_path_completo_dados).is_file() {                                                        
+                    n_errors+=1;
+                    let error_msg = format!(
+                        "Error {}! Line:{} File:{} does not exist!",
+                            n_errors, n_linhas, file_path_completo_dados
+                    );
+                    error_results.push(error_msg.clone());
+                    error!("{}",error_msg);
+                    if main_args.flag_stop_on_first_error {
+                        eprintln!("{}",error_msg);
+                        process::exit(1);                            
+                    }                            
+                    continue;
+                }
+                match hash_hush(
+                    file_path_completo_dados,
+                    algorithm,
+                    main_args.buffer_size as usize,
+                    main_args.n_max_concur,
+                ) {
+                    Ok(hash_calculado) => {
+                        info!("Hash Calculated:*{}*", hash_calculado);
+                        let hash_calc=hash_calculado.to_lowercase().trim().to_string();
+                        let hash_to_check = hash_lido.to_lowercase().trim().to_string();
+                        if hash_to_check== hash_calc {
+                            info!("Hashes matched!");
+                            n_acertos+=1;
+                        } else {
+                            // Erro na checagem
+                            n_errors+=1;
+                            let error_msg = format!(
+                                "Error {}! Line:{} File:{} Algorithm:{} HashRead:{} HashCalculated:{}: Hash doesnt match!",
+                                 n_errors, n_linhas,file_path_completo_dados, algorithm,hash_to_check,hash_calc                                                      
+                            );
+                            error_results.push(error_msg.clone());
+                            error!("{}",error_msg);
+                            if main_args.flag_stop_on_first_error {
+                                eprintln!("{}",error_msg);
+                                process::exit(1);                            
+                            }      
+                            continue;
+                            
+                        }
+                    }
+                    Err(e) => {                        
+                        n_errors+=1;
+                        let error_msg = format!(
+                            "Error {}: Line:{} File:{} Algorithm:{} : error{}:",
+                                n_errors, n_linhas,file_path_completo_dados, algorithm,e );
+                                error_results.push(error_msg.clone());
+                        if main_args.flag_stop_on_first_error {
+                            eprintln!("{}",error_msg);
+                            process::exit(1);                            
+                        }   
+                        continue;
+
+                    }
+                }
+
+            }
+            Err(e) => {
+                // Handle the error if reading the line fails
+                n_linhas+=1;        
+                n_errors+=1;        
+                let error_msg = format!(         "Error {}! Line:{} File:{} => {}",
+                     n_errors, n_linhas,file_path, e );
+                if main_args.flag_stop_on_first_error {
+                    eprintln!("{}",error_msg);
+                    process::exit(1);                            
+                }   
+                continue;
+            }
+        }
+    }
+    
+    
+    if n_linhas == n_acertos {
+        println!("Success! Total lines:{} matches! No errors.",n_linhas);          
+    } else{
+        println!("Results: Total lines:{}, matches:{}, errors:{}. ",n_linhas, n_acertos, n_errors);          
+        if n_errors > 0 {
+            eprintln!("{} errors found", n_errors);            
+        }
+        process::exit(1);        
+    }        
+    
+    Ok(())
+}
+
+/* 
+pub fn check_hash_orignial(
+    main_args: Argumentos,
+    file_path: &str,
+    work_dir: &str,
+) -> io::Result<()> {
+
+    info!(
+        "Running subcommand:{} , with: \n in_file_path: {}, work_dir: {}, workers: {}, max_concur: {}, block_size: {}, buffer_size: {}, recursive_enabled: {}, filter:{:?}, log_enabled:{}, out_file_path:{}, stop_on_first_err:{}",
+        main_args.sub_comando,        
+        main_args.in_file_path,
+        work_dir,        
+        main_args.n_workers,
+        main_args.n_max_concur,
+        main_args.block_size_str,
+        main_args.buffer_size_str,
+        main_args.recursive_enabled,
+        main_args.in_file_filter,
+        main_args.log_enabled,
+        main_args.out_file_path,
+        main_args.flag_stop_on_first_error
+        
+    );
+    let mut n_errors=0;
+    let mut n_acertos=0;
+    let mut n_linhas=0;
+
+    let path = Path::new(file_path);
+    let file = File::open(&path)?;
+    let reader = BufReader::new(file);
+
+    let mut error_results = Vec::new();
 
     // Read the file line by line
     for line_result in reader.lines() {
@@ -569,6 +784,22 @@ pub fn read_and_parse_file(
                             gera_caminho_completo(file_path_relativo, work_dir);
                         let file_path_completo_dados = file_path_completo.to_str().unwrap();
                         info!("File Path Completo:*{}*", file_path_completo_dados);
+                        /* Testa se arquivo existe! */
+                        if ! Path::new(file_path_completo_dados).is_file() {                                                        
+                            n_errors+=1;
+                            let error_msg = format!(
+                                "Error {}! Line:{} File:{} does not exist!",
+                                 n_errors, n_linhas, file_path_completo_dados
+                            );
+                            error_results.push(error_msg);
+                            error!("{}",error_msg);
+                            if main_args.flag_stop_on_first_error {
+                                eprintln!("{}",error_msg);
+                                process::exit(1);                            
+                            }                            
+                            continue;
+                        }
+                    
 
                         if let Some((algorithmRash, blocksize_str)) = algorithm.split_once('-') {
                             info!("AlgorithmRash:*{}*", algorithmRash);
@@ -583,70 +814,116 @@ pub fn read_and_parse_file(
                                     ) {
                                         Ok(hash_calculado) => {
                                             info!("Hash Calculated:*{}*", hash_calculado);
-                                            if hash_calculado.to_lowercase().trim()
-                                                == hash_lido.to_lowercase().trim()
-                                            {
+                                            let hash_calc=hash_calculado.to_lowercase().trim().to_string();
+                                            let hash_to_check = hash_lido.to_lowercase().trim().to_string();
+                                            if hash_to_check== hash_calc {
                                                 info!("Hashes matched!");
                                                 n_acertos+=1;
                                             } else {
                                                 // Erro na checagem
-                                                eprintln!("Error. Does not match!");
                                                 n_errors+=1;
+                                                let error_msg = format!(
+                                                    "Error {}! Line:{} File:{} Algorithm:{} HashRead:{} HashCalculated:{}: Hash doesnt match!",
+                                                     n_errors, n_linhas,file_path_completo_dados, algorithm,hash_to_check,hash_calc                                                      
+                                                );
+                                                error_results.push(error_msg);
+                                                error!("{}",error_msg);
+                                                if main_args.flag_stop_on_first_error {
+                                                    eprintln!("{}",error_msg);
+                                                    process::exit(1);                            
+                                                }      
+                                                
                                             }
                                         }
                                         Err(e) => {
-                                            eprintln!("rsha256 error: {}", e);
-                                            process::exit(1);
+                                            eprintln!("rsha256 error: {}. Line:{}", e,n_linhas);
+                                              let error_msg = format!(
+                                                    "Error {}! Line:{} File:{} Algorithm:{} HashRead:{} HashCalculated:{}: Hash doesnt match!",
+                                                     n_errors, n_linhas,file_path_completo_dados, algorithm,hash_to_check,hash_calc                                                      
+                                                );
+                                            if main_args.flag_stop_on_first_error {
+                                                eprintln!("{}",error_msg);
+                                                process::exit(1);                            
+                                            }   
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("r-sha256 error: {}", e);
-                                    process::exit(1);
+                                    eprintln!("rsha256 error: {}. Line:{}", e,n_linhas);
+                                    if main_args.flag_stop_on_first_error {
+                                        eprintln!("{}",error_msg);
+                                        process::exit(1);                            
+                                    }   
                                 }
                             }
                         } else {
                             match hash_sha256(&file_path_completo_dados, main_args.buffer_size as usize) {
                                 Ok(hash_calculado) => {
                                     info!("Hash Calculated:*{}*", hash_calculado);
-                                    if hash_calculado.to_lowercase().trim()
-                                        == hash_lido.to_lowercase().trim()
-                                    {
+                                    let hash_calc=hash_calculado.to_lowercase().trim().to_string();
+                                    let hash_to_check = hash_lido.to_lowercase().trim().to_string();
+                                    if hash_to_check== hash_calc {
                                         info!("Hashes matched!");
                                         n_acertos+=1;
                                     } else {
                                         // Erro na checagem
-                                        eprintln!("Error. Does not match!");
                                         n_errors+=1;
+                                        let error_msg = format!(
+                                            "Error {}! Line:{} File:{} Algorithm:{} HashRead:{} HashCalculated:{}: Hash doesnt match!",
+                                             n_errors, n_linhas,file_path_completo_dados, algorithm,hash_to_check,hash_calc                                                      
+                                        );
+                                        error_results.push(error_msg);
+                                        error!("{}",error_msg);
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("sha256 error: {}", e);
-                                    process::exit(1);
+                                    eprintln!("sha256 error: {}. Line:{}", e,n_linhas);
+                                    if main_args.flag_stop_on_first_error {
+                                        eprintln!("{}",error_msg);
+                                        process::exit(1);                            
+                                    }   
                                 }
                             }
                         }
                     } else {
-                        eprintln!("Invalid format: missing '*' in {}", line);
+                        eprintln!("Invalid format: missing '*' in {}. Line:{}", line,n_linhas);
+                        if main_args.flag_stop_on_first_error {
+                            eprintln!("{}",error_msg);
+                            process::exit(1);                            
+                        }   
                     }
                 } else {
-                    eprintln!("Invalid format: missing '?' in {}", line);
+                    eprintln!("Invalid format: missing '?' in {}. Line:{}", line,n_linhas);
+                    if main_args.flag_stop_on_first_error {
+                        eprintln!("{}",error_msg);
+                        process::exit(1);                            
+                    }   
                 }
             }
             Err(err) => {
                 // Handle the error if reading the line fails
-                eprintln!("Error reading line: {}", err);
+                eprintln!("Error reading line: {}. Linha{}", err,n_linhas);
+                if main_args.flag_stop_on_first_error {
+                    eprintln!("{}",error_msg);
+                    process::exit(1);                            
+                }   
             }
         }
     }
     
-    if n_errors > 0 {
-        eprintln!("{} errors found", n_errors);
+    
+    if n_linhas == n_acertos {
+        println!("Success! Total lines:{} matches! No errors.",n_linhas);          
+    } else{
+        println!("Results: Total lines:{}, matches:{}, errors:{}. ",n_linhas, n_acertos, n_errors);          
+        if n_errors > 0 {
+            eprintln!("{} errors found", n_errors);            
+        }
         process::exit(1);        
     }
-    if n_linhas == n_acertos {
-        println!("Success! lines:{}/matches:{}",n_linhas, n_acertos);          
-    }
+    
+    
     
     Ok(())
 }
+*/

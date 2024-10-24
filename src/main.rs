@@ -36,6 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         buffer_size_str: String::new(),
         block_size: 0,
         buffer_size: 0,
+        flag_stop_on_first_error:true,
         log_enabled: false,
         sub_comando: String::new(),
         in_file_path: String::new(),
@@ -242,7 +243,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                  work_dir = &args[3];
             }
 
-            if let Err(e) = functions::read_and_parse_file(main_args,file_path,work_dir) {
+            if let Err(e) = functions::check_hash(main_args,file_path,work_dir) {
                 eprintln!("check error: {}", e);
                 process::exit(1);
             }
